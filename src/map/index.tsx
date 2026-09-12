@@ -2,7 +2,7 @@ import './index.css';
 import 'leaflet/dist/leaflet.css';
 
 import L from 'leaflet';
-import { FC, useState, useEffect, useRef, Ref, useCallback, RefCallback, useEffectEvent, useMemo } from 'react';
+import { FC, useState, useEffect, useRef, Ref, useCallback, RefCallback, useEffectEvent, useMemo, Fragment } from 'react';
 import { TravelData, TravelPlace } from '../travel-data';
 import { createPortal } from 'react-dom';
 import { TravelPopup } from './popup';
@@ -48,6 +48,7 @@ const TravelMapBase: FC<TravelMapProps> = ({ mapRef }) => {
 
 type PlaceMarker = {
   place: TravelPlace,
+  isPopupOpened: () => boolean,
   openPopup: () => void,
   closePopup: () => void,
   marker: L.Marker,
@@ -91,11 +92,13 @@ const TravelMapPlaces: FC<TravelMapProps> = (props) => {
         offset: [0, -12],
       });
 
+      let isPopupOpened = false;
       popup
         .setLatLng(marker.getLatLng())
         .setContent(popupElement);
 
       const onPopupOpen = () => {
+        isPopupOpened = true;
         const settings = SettingsStorage.getSettings();
         if (settings.currentPlaceId === place.id) {
           return;
@@ -106,6 +109,7 @@ const TravelMapPlaces: FC<TravelMapProps> = (props) => {
       popup.on('add', onPopupOpen);
       
       const onPopupClose = () => {
+        isPopupOpened = false;
         const settings = SettingsStorage.getSettings();
         if (settings.currentPlaceId !== place.id) {
           return;
@@ -116,17 +120,22 @@ const TravelMapPlaces: FC<TravelMapProps> = (props) => {
       popup.on('remove', onPopupClose);
 
       const openPopup = () => {
-        popup.openOn(map);
+        if (!isPopupOpened) {
+          map.openPopup(popup);
+        }
       };
 
       const closePopup = () => {
-        popup.closePopup();
+        if (isPopupOpened) {
+          map.closePopup(popup);
+        }
       };
 
       marker.on('click', openPopup);
 
       placeMarkersNew.push({
         place,
+        isPopupOpened: () => isPopupOpened,
         openPopup,
         closePopup,
         marker,
@@ -151,10 +160,11 @@ const TravelMapPlaces: FC<TravelMapProps> = (props) => {
     setPlaceMarkers(placeMarkersNew);
 
     return () => {
-      for (const placeMarker of placeMarkers) {
-        placeMarker.marker.removeFrom(map);
+      for (const placeMarker of placeMarkersNew) {
         placeMarker.marker.off();
-        placeMarker.popup.closePopup();
+        placeMarker.marker.removeFrom(map);
+
+        placeMarker.closePopup();
         placeMarker.popup.off();
       }
       setPlaceMarkers([]);
@@ -164,9 +174,7 @@ const TravelMapPlaces: FC<TravelMapProps> = (props) => {
   useEffect(() => {
     if (settings.currentPlaceId !== null) {
       const placeMarker = placeMarkers.find(pm => pm.place.id === settings.currentPlaceId);
-      if (placeMarker && !placeMarker.popup.isPopupOpen()) {
-        placeMarker.openPopup();
-      }
+      placeMarker?.openPopup();
     } else {
       for (const placeMarker of placeMarkers) {
         placeMarker.closePopup();
@@ -181,11 +189,13 @@ const TravelMapPlaces: FC<TravelMapProps> = (props) => {
         mapRef={mapRef}
       />
 
-      {placeMarkers.map((placeMarker) => createPortal(
-        <TravelPopup place={placeMarker.place} />,
-        placeMarker.popupElement,
-        placeMarker.place.id
-      ))}
+      <Fragment key={settings.currentData?.id ?? undefined}>
+        {placeMarkers.map((placeMarker) => createPortal(
+          <TravelPopup key={placeMarker.place.id} place={placeMarker.place} />,
+          placeMarker.popupElement,
+          placeMarker.place.id
+        ))}
+      </Fragment>
     </>
   );
 };
