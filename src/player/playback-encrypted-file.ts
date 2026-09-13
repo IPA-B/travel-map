@@ -67,7 +67,7 @@ async function canPlay(track: Track) {
         return false;
     }
 
-    if (!track.startsWith(TRACK_PREFIX)) {
+    if (!track.toLowerCase().startsWith(TRACK_PREFIX)) {
         return false;
     }
 

@@ -108,6 +108,8 @@ const useTravelData = (): UseTravelDataResult => {
             return;
         }
 
+        const encryptedPrefix = 'encrypted:';
+
         const currentDirectory = getCurrentDirectory(dataUrl);
 
         data.places.forEach(place => {
@@ -116,9 +118,23 @@ const useTravelData = (): UseTravelDataResult => {
             }
 
             place.gallery = place.gallery.map(image => 
-                typeof image === 'string' && (image.startsWith('./') || image.startsWith('.\\'))
+                image.startsWith('./') || image.startsWith('.\\')
                 ? (currentDirectory + image.substring(2))
                 : image
+            );
+        });
+
+        data.places.forEach(place => {
+            if (!Array.isArray(place?.tracks)) {
+                return;
+            }
+
+            place.tracks = place.tracks.map(track => 
+                track.startsWith('./') || track.startsWith('.\\')
+                ? (currentDirectory + track.substring(2))
+                : track.toLowerCase().startsWith(encryptedPrefix) && (track.startsWith('./', encryptedPrefix.length) || track.startsWith('.\\', encryptedPrefix.length))
+                ? (track.substring(0, encryptedPrefix.length) + currentDirectory + track.substring(encryptedPrefix.length + 2))
+                : track
             );
         });
     }
