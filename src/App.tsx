@@ -9,8 +9,6 @@ import Player from './player';
 import Utils from './common/utils';
 import { SettingsButton } from './settings/components/settings-button';
 
-// TODO add share button to popup and add selected-place-id query parameter support
-// TODO add Current Directory ./ support to tracks (+encrypted:)
 // TODO add encrypted: support to gallery
 // TODO implement video preview (maybe extend gallery items with objects support e.g. { "url": "....", "preview": "....." })
 // TODO add playback logo, colors and service link to track to player as it may be required by some services (e.g. spotify)

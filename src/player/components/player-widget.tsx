@@ -3,7 +3,7 @@ import './player-widget.css';
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import Translations from '../../translations';
 import Player, { PlayerState } from '..';
-import { NextFilledIcon, VolumeOffFilledIcon, VolumeOnFilledIcon } from '../../common/icons';
+import { PlayNextFilledIcon, VolumeOffFilledIcon, VolumeOnFilledIcon } from '../../common/icons';
 import Utils from '../../common/utils';
 
 export const PlayerWidget: FC = () => {
@@ -88,7 +88,7 @@ export const PlayerWidget: FC = () => {
             aria-label='Next track'
             disabled={!playlist || !trackState}
             onClick={onNextClick}
-            children={<NextFilledIcon />}
+            children={<PlayNextFilledIcon />}
           />
         </div>
       </div>

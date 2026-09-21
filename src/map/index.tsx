@@ -47,13 +47,13 @@ const TravelMapBase: FC<TravelMapProps> = ({ mapRef }) => {
 }
 
 type PlaceMarker = {
-  place: TravelPlace,
+  places: TravelPlace[],
   isPopupOpened: () => boolean,
   openPopup: () => void,
   closePopup: () => void,
   marker: L.Marker,
   popup: L.Popup,
-  popupElement: HTMLDivElement,
+  popupContentElement: HTMLDivElement,
 }
 
 const TravelMapPlaces: FC<TravelMapProps> = (props) => {
@@ -65,15 +65,46 @@ const TravelMapPlaces: FC<TravelMapProps> = (props) => {
   const mapRef = Utils.useMergedRef(setMap, props.mapRef);
 
   const [placeMarkers, setPlaceMarkers] = useState<PlaceMarker[]>([]);
+  const [currentPlaces, setCurrentPlaces] = useState<TravelPlace[]>([]);
+
+  const setCurrentPlace = useCallback((index: number, currentPlace: TravelPlace) => {
+    setCurrentPlaces(cps => {
+      if (cps[index] === currentPlace) {
+        return cps;
+      }
+      const copyCps = cps.slice(); 
+      copyCps[index] = currentPlace; 
+      return copyCps; 
+    });
+  }, []);
 
   useEffect(() => {
     if (!map || !Array.isArray(places) || places.length === 0) {
       return;
     }
 
+    const placesGroupMaxDistance = 50;
+    const placeGroups = places.reduce<TravelPlace[][]>((placeGroups, place) => {
+      const placeLatLng = L.latLng(place.latitude, place.longitude);
+      let placeGroup = placeGroups.find(pg => pg.every(p => placeLatLng.distanceTo(L.latLng(p.latitude, p.longitude)) < placesGroupMaxDistance));
+      if (!placeGroup) {
+        placeGroup = [];
+        placeGroups.push(placeGroup);
+      }
+      placeGroup.push(place);
+      return placeGroups; 
+    }, []);
+
     const placeMarkersNew: PlaceMarker[] = [];
-    for (const place of places) {
-      const marker = L.marker([place.latitude, place.longitude], {
+
+    for (let index = 0; index < placeGroups.length; index++) {
+      const placeGroup = placeGroups[index];
+      const [markerLat, markerLng] = placeGroup.reduce<[lat: number, lng: number]>(
+        ([latR, lngR], { latitude, longitude }) => [(latR + latitude) / 2, (lngR + longitude) / 2], 
+        [placeGroup[0].latitude, placeGroup[0].longitude]
+      );
+
+      const marker = L.marker([markerLat, markerLng], {
         icon: L.divIcon({
           html: '<span class="marker-dot"></span>',
           className: 'travel-marker',
@@ -100,10 +131,10 @@ const TravelMapPlaces: FC<TravelMapProps> = (props) => {
       const onPopupOpen = () => {
         isPopupOpened = true;
         const settings = SettingsStorage.getSettings();
-        if (settings.currentPlaceId === place.id) {
+        if (settings.currentPlaceId === currentPlacesNew[index].id) {
           return;
         }
-        settings.currentPlaceId = place.id;
+        settings.currentPlaceId = currentPlacesNew[index].id;
         SettingsStorage.setSettings(settings);
       };
       popup.on('add', onPopupOpen);
@@ -111,7 +142,7 @@ const TravelMapPlaces: FC<TravelMapProps> = (props) => {
       const onPopupClose = () => {
         isPopupOpened = false;
         const settings = SettingsStorage.getSettings();
-        if (settings.currentPlaceId !== place.id) {
+        if (settings.currentPlaceId !== currentPlacesNew[index].id) {
           return;
         }
         settings.currentPlaceId = null;
@@ -133,19 +164,29 @@ const TravelMapPlaces: FC<TravelMapProps> = (props) => {
 
       marker.on('click', openPopup);
 
-      placeMarkersNew.push({
-        place,
+      const placeMarker: PlaceMarker = {
+        places: placeGroup,
         isPopupOpened: () => isPopupOpened,
         openPopup,
         closePopup,
         marker,
         popup,
-        popupElement
-      });
+        popupContentElement: popupElement
+      };
+
+      placeMarkersNew.push(placeMarker);
+    }
+
+    const currentPlacesNew: TravelPlace[] = [];
+    for (const placeMarker of placeMarkersNew) {
+      const currentPlace = placeMarker.places.find(p => p.id === settings.currentPlaceId) 
+        ?? placeMarker.places.reduce<TravelPlace>((r, p) => r.date.getTime() > p.date.getTime() ? r : p, placeMarker.places[0]);
+      currentPlacesNew.push(currentPlace);
     }
 
     if (placeMarkersNew.length > 0) {
-      const currentPlaceMarker = placeMarkersNew.find(pm => pm.place.id === settings.currentPlaceId) ?? null;
+      const currentPlaceMarkerIndex = currentPlacesNew.findIndex(cp => cp.id === settings.currentPlaceId);
+      const currentPlaceMarker = currentPlaceMarkerIndex >= 0 ? placeMarkersNew[currentPlaceMarkerIndex] : null;
       if (currentPlaceMarker) {
         const bounds = L.latLngBounds([currentPlaceMarker.marker.getLatLng()]);
         map.fitBounds(bounds.pad(0.25), { maxZoom: 10, paddingTopLeft: L.point(0, 300), animate: false });
@@ -158,6 +199,7 @@ const TravelMapPlaces: FC<TravelMapProps> = (props) => {
     }
 
     setPlaceMarkers(placeMarkersNew);
+    setCurrentPlaces(currentPlacesNew);
 
     return () => {
       for (const placeMarker of placeMarkersNew) {
@@ -168,19 +210,45 @@ const TravelMapPlaces: FC<TravelMapProps> = (props) => {
         placeMarker.popup.off();
       }
       setPlaceMarkers([]);
+      setCurrentPlaces([]);
     };
   }, [places, map]);
 
   useEffect(() => {
     if (settings.currentPlaceId !== null) {
-      const placeMarker = placeMarkers.find(pm => pm.place.id === settings.currentPlaceId);
-      placeMarker?.openPopup();
+      const placeMarkerIndex = placeMarkers.findIndex(pm => pm.places.some(p => p.id === settings.currentPlaceId));
+      if (placeMarkerIndex < 0) {
+        return;
+      }
+      const placeMarker = placeMarkers[placeMarkerIndex];
+      const currentPlace = currentPlaces[placeMarkerIndex];
+      if (currentPlace.id !== settings.currentPlaceId) {
+        const settingsCurrentPlace = placeMarker.places.find(p => p.id === settings.currentPlaceId)!;
+        setCurrentPlace(placeMarkerIndex, settingsCurrentPlace);
+      }
+      placeMarker.openPopup();
     } else {
       for (const placeMarker of placeMarkers) {
         placeMarker.closePopup();
       }
     }
   }, [placeMarkers, settings]);
+
+  useEffect(() => {
+    if (settings.currentPlaceId !== null) {
+      const placeMarkerIndex = placeMarkers.findIndex(pm => pm.places.some(p => p.id === settings.currentPlaceId));
+      const currentPlace = placeMarkerIndex >= 0 ? currentPlaces[placeMarkerIndex] : null;
+      if (currentPlace !== null && currentPlace.id !== settings.currentPlaceId) {
+        settings.currentPlaceId = currentPlace.id;
+        SettingsStorage.setSettings(settings);
+      }
+    }
+  }, [currentPlaces]);
+
+  const onCurrentPlaceChanged = useMemo(
+    () => placeMarkers.map((_, index) => setCurrentPlace.bind(undefined, index)), 
+    [placeMarkers]
+  );
 
   return (
     <>
@@ -190,11 +258,19 @@ const TravelMapPlaces: FC<TravelMapProps> = (props) => {
       />
 
       <Fragment key={settings.currentData?.id ?? undefined}>
-        {placeMarkers.map((placeMarker) => createPortal(
-          <TravelPopup key={placeMarker.place.id} place={placeMarker.place} />,
-          placeMarker.popupElement,
-          placeMarker.place.id
-        ))}
+        {placeMarkers.map((placeMarker, index) => {
+          const key = placeMarker.places.map(p => p.id).join('_');
+          return createPortal(
+            <TravelPopup 
+              key={key} 
+              places={placeMarker.places}
+              currentPlace={currentPlaces[index]}
+              onCurrentPlaceChanged={onCurrentPlaceChanged[index]}
+            />,
+            placeMarker.popupContentElement,
+            key
+          );
+        })}
       </Fragment>
     </>
   );

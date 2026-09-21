@@ -8,6 +8,19 @@
 	transition: background 0.2s ease;
 }
 
+.button.button-with-icon.button-with-children {
+	display: flex;
+	flex-direction: row;
+	justify-content: space-between;
+	align-items: center;
+	gap: 0.85rem;
+}
+
+.button.button-with-icon:not(.button-with-children) {
+	aspect-ratio: 1 / 1;
+	padding: 0.25rem;
+}
+
 /* Primary buttons */
 
 .button-primary.button-contained {
@@ -27,6 +40,22 @@
 	background: var(--primary-300);
 }
 
+.button-primary.button-filled {
+	background: var(--primary-100);
+    color: var(--primary-600);
+}
+.button-primary.button-filled:hover {
+	background: var(--primary-300);
+}
+
+.button-primary.button-text {
+	background: transparent;
+    color: var(--primary-600);
+}
+.button-primary.button-text:hover {
+	background: color-mix(var(--primary-500) 25%, transparent);
+}
+
 /* Secondary buttons */
 
 .button-secondary.button-contained {
@@ -44,4 +73,20 @@
 }
 .button-secondary.button-outlined:hover {
 	background: var(--secondary-300);
+}
+
+.button-secondary.button-filled {
+	background: var(--secondary-100);
+    color: var(--secondary-600);
+}
+.button-secondary.button-filled:hover {
+	background: var(--secondary-300);
+}
+
+.button-secondary.button-text {
+	background: transparent;
+    color: var(--secondary-600);
+}
+.button-secondary.button-text:hover {
+	background: color-mix(var(--secondary-500) 25%, transparent);
 }

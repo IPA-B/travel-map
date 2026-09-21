@@ -2,6 +2,12 @@ import { FC, SVGProps } from "react";
 
 export type IconProps = Omit<SVGProps<SVGSVGElement>, 'children' | 'viewBox' | 'xmlns'>;
 
+export const NextOutlinedIcon: FC<IconProps> = (props) => (
+    <svg {...props} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M9.5 5L15.7929 11.2929C16.1834 11.6834 16.1834 12.3166 15.7929 12.7071L9.5 19" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+);
+
 export const DeleteOutlinedIcon: FC<IconProps> = (props) => (
     <svg {...props} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path d="M10 11V17" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -46,7 +52,7 @@ export const VolumeOffFilledIcon: FC<IconProps> = (props) => (
     </svg>
 );
 
-export const NextFilledIcon: FC<IconProps> = (props) => (
+export const PlayNextFilledIcon: FC<IconProps> = (props) => (
     <svg {...props} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path d="M8.58124 8.12946L12.8608 11.1863C13.4191 11.5851 13.4191 12.4149 12.8608 12.8137L8.58124 15.8705C7.91937 16.3433 7 15.8702 7 15.0568V8.94319C7 8.12982 7.91937 7.65669 8.58124 8.12946Z" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         <path d="M17 8V16" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
