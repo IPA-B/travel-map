@@ -9,7 +9,8 @@ import { TravelPopup } from './popup';
 import Utils from '../common/utils';
 import Player from '../player';
 import SettingsStorage from '../settings';
-import { useSettings } from '../settings/components/hooks';
+import { useSettings, useSettingsCurrentPlaceId } from '../settings/components/hooks';
+import { getMarkerLatLng, TravelMapMarker } from './marker';
 
 export type TravelMapProps = {
   mapRef?: Ref<L.Map>;
@@ -46,209 +47,112 @@ const TravelMapBase: FC<TravelMapProps> = ({ mapRef }) => {
   return (<div ref={mapElementRef} id="map" aria-label="Travel map" />);
 }
 
-type PlaceMarker = {
-  places: TravelPlace[],
-  isPopupOpened: () => boolean,
-  openPopup: () => void,
-  closePopup: () => void,
-  marker: L.Marker,
-  popup: L.Popup,
-  popupContentElement: HTMLDivElement,
-}
+const getStringHash = (value: string) => {
+  let hash = 0;
+  for (const char of value) {
+    hash = (hash << 5) - hash + char.charCodeAt(0);
+    hash |= 0;
+  }
+  return hash;
+};
+
 
 const TravelMapPlaces: FC<TravelMapProps> = (props) => {
   const places = props.travelData?.places;
 
-  const settings = useSettings();
+  const [settingsCurrentPlaceId] = useSettingsCurrentPlaceId();
 
   const [map, setMap] = useState<L.Map | null>(null);
   const mapRef = Utils.useMergedRef(setMap, props.mapRef);
 
-  const [placeMarkers, setPlaceMarkers] = useState<PlaceMarker[]>([]);
-  const [currentPlaces, setCurrentPlaces] = useState<TravelPlace[]>([]);
+  const [markerPlaces, setMarkerPlaces] = useState<TravelPlace[][]>([]);
 
-  const setCurrentPlace = useCallback((index: number, currentPlace: TravelPlace) => {
-    setCurrentPlaces(cps => {
-      if (cps[index] === currentPlace) {
-        return cps;
-      }
-      const copyCps = cps.slice(); 
-      copyCps[index] = currentPlace; 
-      return copyCps; 
-    });
-  }, []);
+  const placesHash = useMemo(
+    () => places?.reduce((r, p) => r ^ getStringHash(p.id), places.length) ?? 0,
+    [places]
+  );
 
   useEffect(() => {
     if (!map || !Array.isArray(places) || places.length === 0) {
       return;
     }
 
-    const placesGroupMaxDistance = 50;
-    const placeGroups = places.reduce<TravelPlace[][]>((placeGroups, place) => {
-      const placeLatLng = L.latLng(place.latitude, place.longitude);
-      let placeGroup = placeGroups.find(pg => pg.every(p => placeLatLng.distanceTo(L.latLng(p.latitude, p.longitude)) < placesGroupMaxDistance));
-      if (!placeGroup) {
-        placeGroup = [];
-        placeGroups.push(placeGroup);
+    const updateMarkerPlaces = () => {
+      const markerPointMinDistancePixels = 25;
+
+      const markerPlacesNew = places.map(p => [p]);
+
+      const distanceSquared = (a: L.Point, b: L.Point): number => { 
+        const dx = a.x - b.x; 
+        const dy = a.y - b.y; 
+        return dx * dx + dy * dy; 
       }
-      placeGroup.push(place);
-      return placeGroups; 
-    }, []);
 
-    const placeMarkersNew: PlaceMarker[] = [];
+      while (markerPlacesNew.length > 1) {
+        let closestA = -1;
+        let closestB = -1;
+        let closestDistance = Infinity;
 
-    for (let index = 0; index < placeGroups.length; index++) {
-      const placeGroup = placeGroups[index];
-      const [markerLat, markerLng] = placeGroup.reduce<[lat: number, lng: number]>(
-        ([latR, lngR], { latitude, longitude }) => [(latR + latitude) / 2, (lngR + longitude) / 2], 
-        [placeGroup[0].latitude, placeGroup[0].longitude]
-      );
+        for (let i = 0; i < markerPlacesNew.length - 1; i++) {
+          const centerA = map.latLngToContainerPoint(getMarkerLatLng(markerPlacesNew[i]));
 
-      const marker = L.marker([markerLat, markerLng], {
-        icon: L.divIcon({
-          html: '<span class="marker-dot"></span>',
-          className: 'travel-marker',
-          iconSize: [24, 24],
-          iconAnchor: [12, 24],
-        }),
-      }).addTo(map);
+          for (let j = i + 1; j < markerPlacesNew.length; j++) {
+            const centerB = map.latLngToContainerPoint(getMarkerLatLng(markerPlacesNew[j]));
 
-      const popupElement = document.createElement('div');
+            const distance = distanceSquared(centerA, centerB);
 
-      const popup = L.popup({
-        className: 'travel-popup',
-        minWidth: 250,
-        maxWidth: 600,
-        closeButton: false,
-        offset: [0, -12],
-      });
-
-      let isPopupOpened = false;
-      popup
-        .setLatLng(marker.getLatLng())
-        .setContent(popupElement);
-
-      const onPopupOpen = () => {
-        isPopupOpened = true;
-        const settings = SettingsStorage.getSettings();
-        if (settings.currentPlaceId === currentPlacesNew[index].id) {
-          return;
+            if (distance < closestDistance) {
+              closestDistance = distance;
+              closestA = i;
+              closestB = j;
+            }
+          }
         }
-        settings.currentPlaceId = currentPlacesNew[index].id;
-        SettingsStorage.setSettings(settings);
-      };
-      popup.on('add', onPopupOpen);
+
+        // The closest pair is already far enough apart.
+        if (closestDistance >= markerPointMinDistancePixels * markerPointMinDistancePixels) {
+          break;
+        }
+
+        // Merge the closest pair.
+        markerPlacesNew[closestA].push(...markerPlacesNew[closestB]);
+        markerPlacesNew.splice(closestB, 1);
+      }
       
-      const onPopupClose = () => {
-        isPopupOpened = false;
-        const settings = SettingsStorage.getSettings();
-        if (settings.currentPlaceId !== currentPlacesNew[index].id) {
-          return;
-        }
-        settings.currentPlaceId = null;
-        SettingsStorage.setSettings(settings);
-      };
-      popup.on('remove', onPopupClose);
+      setMarkerPlaces(markerPlacesNew);
+    };
 
-      const openPopup = () => {
-        if (!isPopupOpened) {
-          map.openPopup(popup);
-        }
-      };
+    const onMapZoomChanged = () => updateMarkerPlaces();
 
-      const closePopup = () => {
-        if (isPopupOpened) {
-          map.closePopup(popup);
-        }
-      };
-
-      marker.on('click', openPopup);
-
-      const placeMarker: PlaceMarker = {
-        places: placeGroup,
-        isPopupOpened: () => isPopupOpened,
-        openPopup,
-        closePopup,
-        marker,
-        popup,
-        popupContentElement: popupElement
-      };
-
-      placeMarkersNew.push(placeMarker);
-    }
-
-    const currentPlacesNew: TravelPlace[] = [];
-    for (const placeMarker of placeMarkersNew) {
-      const currentPlace = placeMarker.places.find(p => p.id === settings.currentPlaceId) 
-        ?? placeMarker.places.reduce<TravelPlace>((r, p) => r.date.getTime() > p.date.getTime() ? r : p, placeMarker.places[0]);
-      currentPlacesNew.push(currentPlace);
-    }
-
-    if (placeMarkersNew.length > 0) {
-      const currentPlaceMarkerIndex = currentPlacesNew.findIndex(cp => cp.id === settings.currentPlaceId);
-      const currentPlaceMarker = currentPlaceMarkerIndex >= 0 ? placeMarkersNew[currentPlaceMarkerIndex] : null;
-      if (currentPlaceMarker) {
-        const bounds = L.latLngBounds([currentPlaceMarker.marker.getLatLng()]);
-        map.fitBounds(bounds.pad(0.25), { maxZoom: 10, paddingTopLeft: L.point(0, 300), animate: false });
-      } else {
-        const bounds = L.latLngBounds(
-          placeMarkersNew.map((placeMarker) => placeMarker.marker.getLatLng()),
-        );
-        map.fitBounds(bounds.pad(0.25), { maxZoom: 10, animate: false });
-      }
-    }
-
-    setPlaceMarkers(placeMarkersNew);
-    setCurrentPlaces(currentPlacesNew);
+    map.on('zoom', onMapZoomChanged);
+    updateMarkerPlaces();
 
     return () => {
-      for (const placeMarker of placeMarkersNew) {
-        placeMarker.marker.off();
-        placeMarker.marker.removeFrom(map);
-
-        placeMarker.closePopup();
-        placeMarker.popup.off();
-      }
-      setPlaceMarkers([]);
-      setCurrentPlaces([]);
+      map.off('zoom', onMapZoomChanged);
+      setMarkerPlaces([]);
     };
-  }, [places, map]);
+  }, [map, placesHash]);
 
   useEffect(() => {
-    if (settings.currentPlaceId !== null) {
-      const placeMarkerIndex = placeMarkers.findIndex(pm => pm.places.some(p => p.id === settings.currentPlaceId));
-      if (placeMarkerIndex < 0) {
-        return;
-      }
-      const placeMarker = placeMarkers[placeMarkerIndex];
-      const currentPlace = currentPlaces[placeMarkerIndex];
-      if (currentPlace.id !== settings.currentPlaceId) {
-        const settingsCurrentPlace = placeMarker.places.find(p => p.id === settings.currentPlaceId)!;
-        setCurrentPlace(placeMarkerIndex, settingsCurrentPlace);
-      }
-      placeMarker.openPopup();
+    if (typeof map !== 'object' || map === null) {
+      return;
+    }
+
+    if (!Array.isArray(places) || places.length == 0) {
+      return;
+    }
+
+    const currentPlace = places.find(p => p.id === settingsCurrentPlaceId);
+    if (currentPlace) {
+      const bounds = L.latLngBounds([L.latLng(currentPlace.latitude, currentPlace.longitude)]);
+      map.fitBounds(bounds.pad(0.25), { maxZoom: 10, paddingTopLeft: L.point(0, 300), animate: false });
     } else {
-      for (const placeMarker of placeMarkers) {
-        placeMarker.closePopup();
-      }
+      const bounds = L.latLngBounds(
+        places.map(p => L.latLng(p.latitude, p.longitude)),
+      );
+      map.fitBounds(bounds.pad(0.25), { maxZoom: 10, animate: false });
     }
-  }, [placeMarkers, settings]);
-
-  useEffect(() => {
-    if (settings.currentPlaceId !== null) {
-      const placeMarkerIndex = placeMarkers.findIndex(pm => pm.places.some(p => p.id === settings.currentPlaceId));
-      const currentPlace = placeMarkerIndex >= 0 ? currentPlaces[placeMarkerIndex] : null;
-      if (currentPlace !== null && currentPlace.id !== settings.currentPlaceId) {
-        settings.currentPlaceId = currentPlace.id;
-        SettingsStorage.setSettings(settings);
-      }
-    }
-  }, [currentPlaces]);
-
-  const onCurrentPlaceChanged = useMemo(
-    () => placeMarkers.map((_, index) => setCurrentPlace.bind(undefined, index)), 
-    [placeMarkers]
-  );
+  }, [map, placesHash]);
 
   return (
     <>
@@ -257,20 +161,14 @@ const TravelMapPlaces: FC<TravelMapProps> = (props) => {
         mapRef={mapRef}
       />
 
-      <Fragment key={settings.currentData?.id ?? undefined}>
-        {placeMarkers.map((placeMarker, index) => {
-          const key = placeMarker.places.map(p => p.id).join('_');
-          return createPortal(
-            <TravelPopup 
-              key={key} 
-              places={placeMarker.places}
-              currentPlace={currentPlaces[index]}
-              onCurrentPlaceChanged={onCurrentPlaceChanged[index]}
-            />,
-            placeMarker.popupContentElement,
-            key
-          );
-        })}
+      <Fragment key={placesHash}>
+        {markerPlaces.map((places) => (
+          <TravelMapMarker
+            key={places.reduce((r, p) => r ^ getStringHash(p.id), places.length)}
+            map={map}
+            places={places}
+          />
+        ))}
       </Fragment>
     </>
   );
@@ -346,10 +244,10 @@ const TravelMapPlayerController: FC<TravelMapProps> = (props) => {
   const [map, setMap] = useState<L.Map | null>(null);
   const mapRef: RefCallback<L.Map> = Utils.useMergedRef(props.mapRef, setMap);
 
-  const settings = useSettings();
+  const [settingsCurrentPlaceId] = useSettingsCurrentPlaceId();
   const selectedPlace = useMemo(
-    () => places?.find(p => p.id === settings.currentPlaceId) ?? null, 
-    [settings.currentPlaceId, places]
+    () => places?.find(p => p.id === settingsCurrentPlaceId) ?? null,
+    [settingsCurrentPlaceId, places]
   );
 
   const updateCurrentPlaylistSkipping = useEffectEvent(() => {
@@ -358,10 +256,10 @@ const TravelMapPlayerController: FC<TravelMapProps> = (props) => {
     }
 
     return Utils.skipOrExecute(
-      'map-player-controller-update-current-playlist', 
-      updateCurrentPlaylist, 
-      map, 
-      places ?? [], 
+      'map-player-controller-update-current-playlist',
+      updateCurrentPlaylist,
+      map,
+      places ?? [],
       selectedPlace
     );
   });
@@ -372,10 +270,10 @@ const TravelMapPlayerController: FC<TravelMapProps> = (props) => {
     }
 
     return Utils.waitAndExecute(
-      'map-player-controller-update-current-playlist', 
-      updateCurrentPlaylist, 
-      map, 
-      places ?? [], 
+      'map-player-controller-update-current-playlist',
+      updateCurrentPlaylist,
+      map,
+      places ?? [],
       selectedPlace
     );
   });

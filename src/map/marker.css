@@ -1,0 +1,14 @@
+.travel-marker {
+	background: transparent;
+	border: none;
+}
+
+.marker-dot {
+	display: block;
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	background: var(--primary);
+	border: 3px solid #fff;
+	box-shadow: 0 6px 18px rgba(82, 41, 25, 0.22);
+}

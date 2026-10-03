@@ -29,7 +29,7 @@ export type UseTravelDataResult = {
 }
 
 const useTravelData = (): UseTravelDataResult => {
-    const settings = useSettings();
+    const [settings] = useSettings();
     const dataUrl = settings.currentData?.url ?? '';
 
     const { data, isLoading, error } = Utils.useFetch<unknown>(dataUrl, (r) => r.json());
