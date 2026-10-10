@@ -7,17 +7,15 @@ import { TravelPopup } from "./popup";
 import { createPortal } from "react-dom";
 import L from "leaflet";
 
-export const getMarkerLatLng = (places: TravelPlace[]): [lat: number, lng: number] => {
-    if (places.length === 0) throw 'Invalid places agrument';
-    return (({lat, lng}: L.LatLng) => [lat, lng])(L.latLngBounds(places.map(p => L.latLng(p.latitude, p.longitude))).getCenter());
-};
-
 export type TravelMapMarkerProps = {
   map: L.Map | null,
+  latitude: number | null,
+  longitude: number | null,
   places: TravelPlace[],
+  onCurrentPlaceChanged?: ((place: TravelPlace | null) => void) | null,
 }
 
-export const TravelMapMarker: FC<TravelMapMarkerProps> = ({ map, places: placesFromProps }) => {
+export const TravelMapMarker: FC<TravelMapMarkerProps> = ({ map, latitude: markerLat, longitude: markerLng, places: placesFromProps, onCurrentPlaceChanged: onCurrentPlaceChangedFromProps }) => {
   const [settingsCurrentPlaceId, setSettingsCurrentPlaceId] = useSettingsCurrentPlaceId();
 
   const [currentPlace, setCurrentPlace] = useState<TravelPlace | null>(null);
@@ -28,10 +26,6 @@ export const TravelMapMarker: FC<TravelMapMarkerProps> = ({ map, places: placesF
 
   const isPopupOpened = useMemo<boolean>(() => places.some(p => p.id === settingsCurrentPlaceId), [places, settingsCurrentPlaceId]);
   const popupContentElement = useMemo<HTMLDivElement>(() => document.createElement('div'), []);
-  const [markerLat, markerLng] = useMemo<[lat: number | null, lng: number | null]>(
-    () => places.length > 0 ? getMarkerLatLng(places) : [null, null], 
-    [places]
-  );
 
   const onMarkerClick = useEffectEvent(() => {
       if (!currentPlace) return;
@@ -126,6 +120,10 @@ export const TravelMapMarker: FC<TravelMapMarkerProps> = ({ map, places: placesF
   const onCurrentPlaceChanged = useCallback((currentPlace: TravelPlace) => {
     setCurrentPlace(currentPlace);
   }, []);
+
+  useEffect(() => {
+    onCurrentPlaceChangedFromProps?.(currentPlace);
+  }, [currentPlace, onCurrentPlaceChangedFromProps]);
 
   return createPortal(
     <TravelPopup

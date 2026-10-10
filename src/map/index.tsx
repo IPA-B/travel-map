@@ -2,20 +2,16 @@ import './index.css';
 import 'leaflet/dist/leaflet.css';
 
 import L from 'leaflet';
-import { FC, useState, useEffect, useRef, Ref, useCallback, RefCallback, useEffectEvent, useMemo, Fragment } from 'react';
+import { FC, useState, useEffect, useRef, Ref, RefCallback, useEffectEvent, useMemo, Fragment, useCallback } from 'react';
 import { TravelData, TravelPlace } from '../travel-data';
-import { createPortal } from 'react-dom';
-import { TravelPopup } from './popup';
 import Utils from '../common/utils';
 import Player from '../player';
-import SettingsStorage from '../settings';
-import { useSettings, useSettingsCurrentPlaceId } from '../settings/components/hooks';
-import { getMarkerLatLng, TravelMapMarker } from './marker';
+import { useSettingsCurrentPlaceId } from '../settings/components/hooks';
+import { TravelMapMarker } from './marker';
 
 export type TravelMapProps = {
   mapRef?: Ref<L.Map>;
   travelData?: TravelData | null;
-  enablePlayerController?: boolean;
 };
 
 const TravelMapBase: FC<TravelMapProps> = ({ mapRef }) => {
@@ -56,8 +52,176 @@ const getStringHash = (value: string) => {
   return hash;
 };
 
+const getMarkerLatLng = (places: TravelPlace[]): [lat: number, lng: number] => {
+    if (places.length === 0) throw 'Invalid places agrument';
+    return (({lat, lng}: L.LatLng) => [lat, lng])(L.latLngBounds(places.map(p => L.latLng(p.latitude, p.longitude))).getCenter());
+};
 
-const TravelMapPlaces: FC<TravelMapProps> = (props) => {
+
+async function updateCurrentPlaylist(map: L.Map | null | undefined, places: TravelPlace[], positions: [lat: number, lng: number][], currentPlace: TravelPlace | null | undefined) {
+
+  const pauseTrackRadiusPixels = 500;
+  const playTrackRadiusPixels = 300;
+
+  let centeredPlace: TravelPlace | null = null;
+  let centeredDistance = Number.POSITIVE_INFINITY;
+  let currentPlaylistPlaceDistance = Number.POSITIVE_INFINITY;
+
+  if (currentPlace) {
+    centeredPlace = currentPlace;
+    centeredDistance = 0;
+  }
+
+  const playerState = Player.getState();
+  const playerPlaylist = playerState.currentPlaylist;
+  const playerPlaylistId = playerPlaylist?.id ?? null;
+
+  if (playerState.volume === 0 || !map || !Array.isArray(places) || places.length === 0) {
+    if (playerPlaylist !== null) {
+      await Player.stop();
+    }
+    return;
+  }
+
+  const mapCenter = map.getCenter();
+  const mapCenterPoint = map.latLngToContainerPoint(mapCenter);
+
+  const placesExtended = places.map((place, index) => ({
+    place,
+    playlist: playerState.playlists.find(p => p.id === place.id) ?? null,
+    position: positions[index] ?? [place.latitude, place.longitude],
+  }));
+
+  placesExtended.forEach(({ place, playlist, position }) => {
+    const placePoint = map.latLngToContainerPoint(position);
+    const pixelDistance = Math.hypot(placePoint.x - mapCenterPoint.x, placePoint.y - mapCenterPoint.y);
+
+    if (place.id === playerPlaylistId) {
+      currentPlaylistPlaceDistance = pixelDistance;
+    }
+
+    if (!playlist || playlist.tracks.length === 0 || playlist.tracks.every(t => t.canPlay === false)) {
+      return;
+    }
+
+    if (pixelDistance < centeredDistance) {
+      centeredDistance = pixelDistance;
+      centeredPlace = place;
+    }
+  });
+
+  if (centeredPlace !== null && centeredPlace.id !== playerPlaylistId) {
+    const canChangePlaylist = centeredDistance <= playTrackRadiusPixels;
+    if (canChangePlaylist) {
+      await Player.changePlaylist(centeredPlace.id);
+    }
+  } else if (playerPlaylistId !== null && currentPlaylistPlaceDistance > pauseTrackRadiusPixels && !currentPlace) {
+    await Player.stop();
+  }
+}
+
+const useTravelMapPlayerController = (map: L.Map | null | undefined, places: (TravelPlace | null)[], positions: [lat: number, lng: number][]) => {
+
+  const cacheRef = useRef<[placesCache: TravelPlace[], positionsCache: [lat: number, lng: number][]]>([[], []]);
+  const [placesReady, positionsReady] = useMemo(
+    () => places.every(p => !!p)
+      ? (cacheRef.current = [places, positions])
+      : cacheRef.current,
+    [places, positions]
+  );
+
+  const [settingsCurrentPlaceId] = useSettingsCurrentPlaceId();
+  const settingsCurrentPlace = useMemo(
+    () => placesReady?.find(p => p && p.id === settingsCurrentPlaceId) ?? null,
+    [settingsCurrentPlaceId, placesReady]
+  );
+
+  const updateCurrentPlaylistSkipping = useEffectEvent(() => {
+    if (!map) {
+      return;
+    }
+
+    return Utils.skipOrExecute(
+      'map-player-controller-update-current-playlist',
+      updateCurrentPlaylist,
+      map,
+      placesReady,
+      positionsReady,
+      settingsCurrentPlace
+    );
+  });
+
+  const updateCurrentPlaylistWaiting = useEffectEvent(() => {
+    if (!map) {
+      return;
+    }
+
+    return Utils.waitAndExecute(
+      'map-player-controller-update-current-playlist',
+      updateCurrentPlaylist,
+      map,
+      placesReady,
+      positionsReady,
+      settingsCurrentPlace
+    );
+  });
+
+  useEffect(() => {
+    updateCurrentPlaylistWaiting();
+  }, [settingsCurrentPlace, placesReady, positionsReady]);
+
+  useEffect(() => {
+    if (!map) {
+      return;
+    }
+
+    let isUpdateCurrentPlaylistActive = false;
+    const onPlayerStateChanged = () => {
+      const state = Player.getState();
+
+      if (state.volume === 0 && isUpdateCurrentPlaylistActive) {
+        isUpdateCurrentPlaylistActive = false;
+
+        map.off('move', updateCurrentPlaylistSkipping);
+        map.off('zoom', updateCurrentPlaylistSkipping);
+
+        Player.stop();
+
+        return;
+      }
+
+      if (state.volume > 0 && !isUpdateCurrentPlaylistActive) {
+        isUpdateCurrentPlaylistActive = true;
+
+        map.on('move', updateCurrentPlaylistSkipping);
+        map.on('zoom', updateCurrentPlaylistSkipping);
+
+        updateCurrentPlaylistWaiting();
+
+        return;
+      }
+    }
+
+    Player.addEventListener('state_changed', onPlayerStateChanged);
+    onPlayerStateChanged();
+
+    return () => {
+      Player.removeEventListener('state_changed', onPlayerStateChanged);
+
+      if (isUpdateCurrentPlaylistActive) {
+        map?.off('move', updateCurrentPlaylistSkipping);
+        map?.off('zoom', updateCurrentPlaylistSkipping);
+      }
+
+      Utils.waitAndExecute(
+        'map-player-controller-update-current-playlist',
+        Player.stop
+      );
+    };
+  }, [map]);
+};
+
+const TravelMapWithMarkers: FC<TravelMapProps> = (props) => {
   const places = props.travelData?.places;
 
   const [settingsCurrentPlaceId] = useSettingsCurrentPlaceId();
@@ -66,6 +230,19 @@ const TravelMapPlaces: FC<TravelMapProps> = (props) => {
   const mapRef = Utils.useMergedRef(setMap, props.mapRef);
 
   const [markerPlaces, setMarkerPlaces] = useState<TravelPlace[][]>([]);
+
+  const [markerCurrentPlaces, setMarkerCurrentPlaces] = useState<(TravelPlace | null)[]>([]);
+
+  const markerPositions = useMemo<[lat: number, lng: number][]>(
+    () => markerPlaces.map(getMarkerLatLng), 
+    [markerPlaces]
+  );
+
+  useTravelMapPlayerController(
+    map, 
+    markerCurrentPlaces, 
+    markerPositions
+  );
 
   const placesHash = useMemo(
     () => places?.reduce((r, p) => r ^ getStringHash(p.id), places.length) ?? 0,
@@ -120,6 +297,7 @@ const TravelMapPlaces: FC<TravelMapProps> = (props) => {
       }
       
       setMarkerPlaces(markerPlacesNew);
+      setMarkerCurrentPlaces(markerPlacesNew.map(() => null));
     };
 
     const onMapZoomChanged = () => updateMarkerPlaces();
@@ -130,6 +308,7 @@ const TravelMapPlaces: FC<TravelMapProps> = (props) => {
     return () => {
       map.off('zoom', onMapZoomChanged);
       setMarkerPlaces([]);
+      setMarkerCurrentPlaces([]);
     };
   }, [map, placesHash]);
 
@@ -142,17 +321,28 @@ const TravelMapPlaces: FC<TravelMapProps> = (props) => {
       return;
     }
 
-    const currentPlace = places.find(p => p.id === settingsCurrentPlaceId);
-    if (currentPlace) {
-      const bounds = L.latLngBounds([L.latLng(currentPlace.latitude, currentPlace.longitude)]);
+    const settingsCurrentPlace = places.find(p => p.id === settingsCurrentPlaceId);
+    if (settingsCurrentPlace) {
+      const bounds = L.latLngBounds([L.latLng(settingsCurrentPlace.latitude, settingsCurrentPlace.longitude)]);
       map.fitBounds(bounds.pad(0.25), { maxZoom: 10, paddingTopLeft: L.point(0, 300), animate: false });
     } else {
-      const bounds = L.latLngBounds(
-        places.map(p => L.latLng(p.latitude, p.longitude)),
-      );
+      const bounds = L.latLngBounds(places.map(p => L.latLng(p.latitude, p.longitude)));
       map.fitBounds(bounds.pad(0.25), { maxZoom: 10, animate: false });
     }
   }, [map, placesHash]);
+
+  const onCurrentPlaceChanged = useMemo(
+    () => markerPlaces.map((_, i) => (cp: TravelPlace | null) => setMarkerCurrentPlaces(mcp => { 
+      if (mcp[i] !== cp) {
+        const mcpNew = mcp.slice(); 
+        mcpNew[i] = cp;
+        return mcpNew; 
+      } else {
+        return mcp;
+      }
+    })), 
+    [markerPlaces]
+  );
 
   return (
     <>
@@ -162,11 +352,14 @@ const TravelMapPlaces: FC<TravelMapProps> = (props) => {
       />
 
       <Fragment key={placesHash}>
-        {markerPlaces.map((places) => (
+        {markerPlaces.map((places, index) => (
           <TravelMapMarker
             key={places.reduce((r, p) => r ^ getStringHash(p.id), places.length)}
             map={map}
+            latitude={markerPositions[index][0]}
+            longitude={markerPositions[index][1]}
             places={places}
+            onCurrentPlaceChanged={onCurrentPlaceChanged[index]}
           />
         ))}
       </Fragment>
@@ -174,168 +367,4 @@ const TravelMapPlaces: FC<TravelMapProps> = (props) => {
   );
 };
 
-async function updateCurrentPlaylist(map: L.Map | null | undefined, places: TravelPlace[] | null | undefined, selectedPlace: TravelPlace | null | undefined) {
-
-  const pauseTrackRadiusPixels = 500;
-  const playTrackRadiusPixels = 300;
-  const switchTrackRadiusPixels = 100;
-
-  let centeredPlace: TravelPlace | null = null;
-  let centeredDistance = Number.POSITIVE_INFINITY;
-  let lastCenteredDistance = Number.POSITIVE_INFINITY;
-
-  if (selectedPlace) {
-    centeredPlace = selectedPlace;
-    centeredDistance = 0;
-  }
-
-  const playerState = Player.getState();
-  const playerPlaylist = playerState.currentPlaylist;
-  const playerPlaylistId = playerPlaylist?.id ?? null;
-
-  if (playerState.volume === 0 || !map || !Array.isArray(places) || places.length === 0) {
-    if (playerPlaylist !== null) {
-      await Player.stop();
-    }
-    return;
-  }
-
-  const mapCenter = map.getCenter();
-  const mapCenterPoint = map.latLngToContainerPoint(mapCenter);
-
-  const placesPlaylists = places.map(place => ({
-    place,
-    playlist: playerState.playlists.find(p => p.id === place.id) ?? null,
-  }));
-
-  placesPlaylists.forEach(({ place, playlist }) => {
-    const placePoint = map.latLngToContainerPoint(L.latLng(place.latitude, place.longitude));
-    const pixelDistance = Math.hypot(placePoint.x - mapCenterPoint.x, placePoint.y - mapCenterPoint.y);
-
-    if (place.id === playerPlaylistId) {
-      lastCenteredDistance = pixelDistance;
-    }
-
-    if (!playlist || playlist.tracks.length === 0 || playlist.tracks.every(t => t.canPlay === false)) {
-      return;
-    }
-
-    if (pixelDistance < centeredDistance) {
-      centeredDistance = pixelDistance;
-      centeredPlace = place;
-    }
-  });
-
-
-  if (centeredPlace !== null && centeredPlace.id !== playerPlaylistId) {
-    const canChangePlaylist = centeredDistance <= (playerPlaylistId === null ? playTrackRadiusPixels : switchTrackRadiusPixels);
-    if (canChangePlaylist) {
-      await Player.changePlaylist(centeredPlace.id);
-    }
-  } else if (playerPlaylistId !== null && lastCenteredDistance > pauseTrackRadiusPixels && !selectedPlace) {
-    await Player.stop();
-  }
-}
-
-const TravelMapPlayerController: FC<TravelMapProps> = (props) => {
-  const enablePlayerController = props.enablePlayerController ?? true;
-  const places = props.travelData?.places;
-
-  const [map, setMap] = useState<L.Map | null>(null);
-  const mapRef: RefCallback<L.Map> = Utils.useMergedRef(props.mapRef, setMap);
-
-  const [settingsCurrentPlaceId] = useSettingsCurrentPlaceId();
-  const selectedPlace = useMemo(
-    () => places?.find(p => p.id === settingsCurrentPlaceId) ?? null,
-    [settingsCurrentPlaceId, places]
-  );
-
-  const updateCurrentPlaylistSkipping = useEffectEvent(() => {
-    if (!map || enablePlayerController === false) {
-      return;
-    }
-
-    return Utils.skipOrExecute(
-      'map-player-controller-update-current-playlist',
-      updateCurrentPlaylist,
-      map,
-      places ?? [],
-      selectedPlace
-    );
-  });
-
-  const updateCurrentPlaylistWaiting = useEffectEvent(() => {
-    if (!map || enablePlayerController === false) {
-      return;
-    }
-
-    return Utils.waitAndExecute(
-      'map-player-controller-update-current-playlist',
-      updateCurrentPlaylist,
-      map,
-      places ?? [],
-      selectedPlace
-    );
-  });
-
-  useEffect(() => {
-    updateCurrentPlaylistWaiting();
-  }, [selectedPlace]);
-
-  useEffect(() => {
-    if (!map || enablePlayerController === false) {
-      return;
-    }
-
-    let isUpdateCurrentPlaylistActive = false;
-    const onPlayerStateChanged = () => {
-      const state = Player.getState();
-
-      if (state.volume === 0 && isUpdateCurrentPlaylistActive) {
-        isUpdateCurrentPlaylistActive = false;
-
-        map.off('move', updateCurrentPlaylistSkipping);
-        map.off('zoom', updateCurrentPlaylistSkipping);
-
-        Player.stop();
-
-        return;
-      }
-
-      if (state.volume > 0 && !isUpdateCurrentPlaylistActive) {
-        isUpdateCurrentPlaylistActive = true;
-
-        map.on('move', updateCurrentPlaylistSkipping);
-        map.on('zoom', updateCurrentPlaylistSkipping);
-
-        updateCurrentPlaylistWaiting();
-
-        return;
-      }
-    }
-
-    Player.addEventListener('state_changed', onPlayerStateChanged);
-    onPlayerStateChanged();
-
-    return () => {
-      Player.removeEventListener('state_changed', onPlayerStateChanged);
-
-      if (isUpdateCurrentPlaylistActive) {
-        map?.off('move', updateCurrentPlaylistSkipping);
-        map?.off('zoom', updateCurrentPlaylistSkipping);
-      }
-
-      Utils.waitAndExecute(
-        'map-player-controller-update-current-playlist',
-        Player.stop
-      );
-    };
-  }, [map, enablePlayerController]);
-
-  return TravelMapPlaces({
-    ...props,
-    mapRef: mapRef,
-  });
-};
-
-export const TravelMap: FC<TravelMapProps> = TravelMapPlayerController;
+export const TravelMap: FC<TravelMapProps> = TravelMapWithMarkers;
