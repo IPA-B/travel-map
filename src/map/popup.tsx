@@ -1,12 +1,28 @@
-import 'glightbox/dist/css/glightbox.min.css';
+import 'yet-another-react-lightbox/styles.css';
 import './popup.css';
 
-import { CSSProperties, FC, MouseEvent, useCallback, useEffect, useMemo, useRef } from "react";
+import { CSSProperties, FC, MouseEvent, useCallback, useMemo, useState } from "react";
 import { TravelPlace } from "../travel-data";
 import Translations from "../translations";
-import GLightbox from 'glightbox';
+import Lightbox from 'yet-another-react-lightbox';
+import Video from 'yet-another-react-lightbox/plugins/video';
+import type { Slide } from 'yet-another-react-lightbox';
 import { Button } from '../common/button';
 import { NextOutlinedIcon } from '../common/icons';
+
+const getVideoMimeType = (src: string) => {
+  const videoMimeTypes: Record<string, string> = {
+    mp4: 'video/mp4',
+    m4v: 'video/mp4',
+    webm: 'video/webm',
+    ogv: 'video/ogg',
+    ogg: 'video/ogg',
+  };
+
+  const fileName = src.split(/[?#]/, 1)[0];
+  const extension = fileName?.split('.').pop()?.toLowerCase();
+  return extension ? videoMimeTypes[extension] : undefined;
+};
 
 type TravelPopupItemProps = {
   style?: CSSProperties | null,
@@ -30,31 +46,21 @@ const TravelPopupItem: FC<TravelPopupItemProps> = ({ style, place, onNext }) => 
     place = defaultPlace;
   }
 
-  const lightboxRef = useRef<ReturnType<typeof GLightbox>>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   const onGalleryItemClick = useCallback((event: MouseEvent, index: number) => {
     event.preventDefault();
-    lightboxRef.current?.openAt(index);
+    setLightboxIndex(index);
+    setLightboxOpen(true);
   }, []);
 
-  useEffect(() => {
-    const lightbox = GLightbox({ selector: '' });
-    lightboxRef.current = lightbox;
-    return () => {
-      lightboxRef.current = null;
-      lightbox.destroy();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!lightboxRef.current) {
-      return;
-    }
-
-    const lightbox = lightboxRef.current;
-    const lightboxElements = place.gallery.map(g => ({ href: g }));
-    lightbox.setElements(lightboxElements);
-  }, [place.gallery]);
+  const slides = useMemo<Slide[]>(() => place.gallery.map<Slide>(src => {
+    const type = getVideoMimeType(src);
+    return type
+      ? { type: 'video', sources: [{ src, type }], controls: true, playsInline: true }
+      : { type: 'image', src };
+  }), [place.gallery]);
 
   const formattedDate = useMemo(() => 
     new Intl.DateTimeFormat(undefined, {
@@ -90,15 +96,24 @@ const TravelPopupItem: FC<TravelPopupItemProps> = ({ style, place, onNext }) => 
               rel="noreferrer"
               onClick={(e) => onGalleryItemClick(e, i)}
             >
-              <img 
-                src={g} 
-                alt="img"
-                loading="lazy"
-                decoding="async"
-              />
+              {getVideoMimeType(g)
+                ? <video src={g} aria-label="Video preview" muted playsInline preload="metadata" />
+                : <img
+                    src={g}
+                    alt="img"
+                    loading="lazy"
+                    decoding="async"
+                  />}
             </a>
         ))}
       </div>
+      <Lightbox
+        open={lightboxOpen}
+        close={() => setLightboxOpen(false)}
+        index={lightboxIndex}
+        slides={slides}
+        plugins={[Video]}
+      />
     </div>
   );
 };
