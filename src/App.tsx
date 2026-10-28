@@ -9,8 +9,11 @@ import Player from './player';
 import Utils from './common/utils';
 import { SettingsButton } from './settings/components/settings-button';
 
+// TODO replace GLightbox with Yet Another React Lightbox
+// TODO change encrypted:uri urls with correct encrypted:encoded(uri) that follow standard
 // TODO mute player during video play
 // TODO add encrypted: support to gallery
+// TODO TravelMap refactor (create LeafletMap react component with LeafletMarker component). Remove L.Map dependency from TravelMap
 // TODO implement video preview (maybe extend gallery items with objects support e.g. { "url": "....", "preview": "....." })
 // TODO add playback logo, colors and service link to track to player as it may be required by some services (e.g. spotify)
 // TODO add more playbacks (apple music, youtube music etc)

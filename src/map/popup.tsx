@@ -9,9 +9,9 @@ import { Button } from '../common/button';
 import { NextOutlinedIcon } from '../common/icons';
 
 type TravelPopupItemProps = {
-  style?: CSSProperties | null;
-  place?: TravelPlace | null;
-  onNext?: (() => void) | null;
+  style?: CSSProperties | null,
+  place?: TravelPlace | null,
+  onNext?: (() => void) | null,
 }
 
 const TravelPopupItem: FC<TravelPopupItemProps> = ({ style, place, onNext }) => {
@@ -104,9 +104,9 @@ const TravelPopupItem: FC<TravelPopupItemProps> = ({ style, place, onNext }) => 
 };
 
 export type TravelPopupProps = {
-  places?: TravelPlace[] | null;
-  currentPlace?: TravelPlace | null;
-  onCurrentPlaceChanged?: ((place: TravelPlace) => void) | null;
+  places?: TravelPlace[] | null,
+  currentPlace?: TravelPlace | null,
+  onCurrentPlaceChanged?: ((place: TravelPlace) => void) | null,
 };
 
 export const TravelPopup: FC<TravelPopupProps> = ({ places, currentPlace, onCurrentPlaceChanged }) => {

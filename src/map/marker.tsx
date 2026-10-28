@@ -15,7 +15,13 @@ export type TravelMapMarkerProps = {
   onCurrentPlaceChanged?: ((place: TravelPlace | null) => void) | null,
 }
 
-export const TravelMapMarker: FC<TravelMapMarkerProps> = ({ map, latitude: markerLat, longitude: markerLng, places: placesFromProps, onCurrentPlaceChanged: onCurrentPlaceChangedFromProps }) => {
+export const TravelMapMarker: FC<TravelMapMarkerProps> = ({ 
+  map, 
+  latitude: markerLat, 
+  longitude: markerLng, 
+  places: placesFromProps, 
+  onCurrentPlaceChanged: onCurrentPlaceChangedFromProps,
+}) => {
   const [settingsCurrentPlaceId, setSettingsCurrentPlaceId] = useSettingsCurrentPlaceId();
 
   const [currentPlace, setCurrentPlace] = useState<TravelPlace | null>(null);

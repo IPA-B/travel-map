@@ -58,7 +58,13 @@ const getMarkerLatLng = (places: TravelPlace[]): [lat: number, lng: number] => {
 };
 
 
-async function updateCurrentPlaylist(map: L.Map | null | undefined, places: TravelPlace[], positions: [lat: number, lng: number][], currentPlace: TravelPlace | null | undefined) {
+async function updatePlayerState(
+  map: L.Map | null | undefined, 
+  places: TravelPlace[], 
+  positions: [lat: number, lng: number][], 
+  currentPlace: TravelPlace | null | undefined,
+  isVideoPlaying: boolean
+) {
 
   const pauseTrackRadiusPixels = 500;
   const playTrackRadiusPixels = 300;
@@ -76,7 +82,7 @@ async function updateCurrentPlaylist(map: L.Map | null | undefined, places: Trav
   const playerPlaylist = playerState.currentPlaylist;
   const playerPlaylistId = playerPlaylist?.id ?? null;
 
-  if (playerState.volume === 0 || !map || !Array.isArray(places) || places.length === 0) {
+  if (playerState.volume === 0 || isVideoPlaying || !map || !Array.isArray(places) || places.length === 0) {
     if (playerPlaylist !== null) {
       await Player.stop();
     }
@@ -136,38 +142,32 @@ const useTravelMapPlayerController = (map: L.Map | null | undefined, places: (Tr
     [settingsCurrentPlaceId, placesReady]
   );
 
-  const updateCurrentPlaylistSkipping = useEffectEvent(() => {
-    if (!map) {
-      return;
-    }
-
+  const updatePlayerStateSkipping = useEffectEvent(() => {
     return Utils.skipOrExecute(
-      'map-player-controller-update-current-playlist',
-      updateCurrentPlaylist,
+      'map-player-controller-update-player-state',
+      updatePlayerState,
       map,
       placesReady,
       positionsReady,
-      settingsCurrentPlace
+      settingsCurrentPlace,
+      false
     );
   });
 
-  const updateCurrentPlaylistWaiting = useEffectEvent(() => {
-    if (!map) {
-      return;
-    }
-
+  const updatePlayerStateWaiting = useEffectEvent(() => {
     return Utils.waitAndExecute(
-      'map-player-controller-update-current-playlist',
-      updateCurrentPlaylist,
+      'map-player-controller-update-player-state',
+      updatePlayerState,
       map,
       placesReady,
       positionsReady,
-      settingsCurrentPlace
+      settingsCurrentPlace,
+      false
     );
   });
 
   useEffect(() => {
-    updateCurrentPlaylistWaiting();
+    updatePlayerStateWaiting();
   }, [settingsCurrentPlace, placesReady, positionsReady]);
 
   useEffect(() => {
@@ -182,10 +182,10 @@ const useTravelMapPlayerController = (map: L.Map | null | undefined, places: (Tr
       if (state.volume === 0 && isUpdateCurrentPlaylistActive) {
         isUpdateCurrentPlaylistActive = false;
 
-        map.off('move', updateCurrentPlaylistSkipping);
-        map.off('zoom', updateCurrentPlaylistSkipping);
+        map.off('move', updatePlayerStateSkipping);
+        map.off('zoom', updatePlayerStateSkipping);
 
-        Player.stop();
+        updatePlayerStateWaiting();
 
         return;
       }
@@ -193,10 +193,10 @@ const useTravelMapPlayerController = (map: L.Map | null | undefined, places: (Tr
       if (state.volume > 0 && !isUpdateCurrentPlaylistActive) {
         isUpdateCurrentPlaylistActive = true;
 
-        map.on('move', updateCurrentPlaylistSkipping);
-        map.on('zoom', updateCurrentPlaylistSkipping);
+        map.on('move', updatePlayerStateSkipping);
+        map.on('zoom', updatePlayerStateSkipping);
 
-        updateCurrentPlaylistWaiting();
+        updatePlayerStateWaiting();
 
         return;
       }
@@ -209,14 +209,11 @@ const useTravelMapPlayerController = (map: L.Map | null | undefined, places: (Tr
       Player.removeEventListener('state_changed', onPlayerStateChanged);
 
       if (isUpdateCurrentPlaylistActive) {
-        map?.off('move', updateCurrentPlaylistSkipping);
-        map?.off('zoom', updateCurrentPlaylistSkipping);
+        map?.off('move', updatePlayerStateSkipping);
+        map?.off('zoom', updatePlayerStateSkipping);
       }
 
-      Utils.waitAndExecute(
-        'map-player-controller-update-current-playlist',
-        Player.stop
-      );
+      updatePlayerStateWaiting();
     };
   }, [map]);
 };
