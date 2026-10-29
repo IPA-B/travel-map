@@ -126,7 +126,94 @@ async function updatePlayerState(
   }
 }
 
+const useIsVideoPlayingObserver = () => {
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+
+  useEffect(() => {
+    const playingVideos = new Set<HTMLVideoElement>(
+      Array.from(document.body.querySelectorAll('video')).filter(video => !video.paused && !video.ended)
+    );
+
+    const updateVideoPlayingState = () => {
+      const hasPlayingVideo = playingVideos.size > 0;
+      setIsVideoPlaying(current => current === hasPlayingVideo ? current : hasPlayingVideo);
+    };
+
+    const forEachVideo = (node: Node, action: (video: HTMLVideoElement) => void) => {
+      if (node instanceof HTMLVideoElement) {
+        action(node);
+      } else if (node instanceof Element) {
+        node.querySelectorAll('video').forEach(action);
+      }
+    };
+
+    const onVideoPlaybackChanged = (event: Event) => {
+      const video = event.target;
+      if (!(video instanceof HTMLVideoElement)) {
+        return;
+      }
+
+      let changed = false;
+      if (event.type === 'play') {
+        changed = !playingVideos.has(video);
+        playingVideos.add(video);
+      } else {
+        changed = playingVideos.delete(video);
+      }
+
+      if (changed) {
+        updateVideoPlayingState();
+      }
+    };
+
+    document.addEventListener('play', onVideoPlaybackChanged, true);
+    document.addEventListener('pause', onVideoPlaybackChanged, true);
+    document.addEventListener('ended', onVideoPlaybackChanged, true);
+    document.addEventListener('emptied', onVideoPlaybackChanged, true);
+
+    const observer = new MutationObserver(mutations => {
+      let videosChanged = false;
+
+      mutations.forEach(mutation => {
+        mutation.removedNodes.forEach(node => {
+          forEachVideo(node, video => {
+            videosChanged = playingVideos.delete(video) || videosChanged;
+          });
+        });
+
+        mutation.addedNodes.forEach(node => {
+          forEachVideo(node, video => {
+            if (!video.paused && !video.ended) {
+              const previousSize = playingVideos.size;
+              playingVideos.add(video);
+              videosChanged = playingVideos.size !== previousSize || videosChanged;
+            }
+          });
+        });
+      });
+
+      if (videosChanged) {
+        updateVideoPlayingState();
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    updateVideoPlayingState();
+
+    return () => {
+      observer.disconnect();
+      document.removeEventListener('play', onVideoPlaybackChanged, true);
+      document.removeEventListener('pause', onVideoPlaybackChanged, true);
+      document.removeEventListener('ended', onVideoPlaybackChanged, true);
+      document.removeEventListener('emptied', onVideoPlaybackChanged, true);
+    };
+  }, []);
+
+  return isVideoPlaying;
+};
+
 const useTravelMapPlayerController = (map: L.Map | null | undefined, places: (TravelPlace | null)[], positions: [lat: number, lng: number][]) => {
+
+  const isVideoPlaying = useIsVideoPlayingObserver();
 
   const cacheRef = useRef<[placesCache: TravelPlace[], positionsCache: [lat: number, lng: number][]]>([[], []]);
   const [placesReady, positionsReady] = useMemo(
@@ -150,7 +237,7 @@ const useTravelMapPlayerController = (map: L.Map | null | undefined, places: (Tr
       placesReady,
       positionsReady,
       settingsCurrentPlace,
-      false
+      isVideoPlaying
     );
   });
 
@@ -162,13 +249,13 @@ const useTravelMapPlayerController = (map: L.Map | null | undefined, places: (Tr
       placesReady,
       positionsReady,
       settingsCurrentPlace,
-      false
+      isVideoPlaying
     );
   });
 
   useEffect(() => {
     updatePlayerStateWaiting();
-  }, [settingsCurrentPlace, placesReady, positionsReady]);
+  }, [settingsCurrentPlace, placesReady, positionsReady, isVideoPlaying]);
 
   useEffect(() => {
     if (!map) {
