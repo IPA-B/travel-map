@@ -48,6 +48,7 @@ const TravelPopupItem: FC<TravelPopupItemProps> = ({ style, place, onNext }) => 
 
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const lightboxPlugins = useMemo(() => [Video], []);
 
   const onGalleryItemClick = useCallback((event: MouseEvent, index: number) => {
     event.preventDefault();
@@ -55,10 +56,12 @@ const TravelPopupItem: FC<TravelPopupItemProps> = ({ style, place, onNext }) => 
     setLightboxOpen(true);
   }, []);
 
+  const onLightboxClose = useCallback(() => setLightboxOpen(false), []);
+
   const slides = useMemo<Slide[]>(() => place.gallery.map<Slide>(src => {
     const type = getVideoMimeType(src);
     return type
-      ? { type: 'video', sources: [{ src, type }], controls: true, playsInline: true }
+      ? { type: 'video', sources: [{ src, type }] }
       : { type: 'image', src };
   }), [place.gallery]);
 
@@ -69,6 +72,7 @@ const TravelPopupItem: FC<TravelPopupItemProps> = ({ style, place, onNext }) => 
     }).format(place.date), 
     [place.date]
   );
+
 
   return (
     <div className="popup-card" style={style ?? undefined}>
@@ -107,12 +111,16 @@ const TravelPopupItem: FC<TravelPopupItemProps> = ({ style, place, onNext }) => 
             </a>
         ))}
       </div>
+
       <Lightbox
         open={lightboxOpen}
-        close={() => setLightboxOpen(false)}
+        close={onLightboxClose}
         index={lightboxIndex}
         slides={slides}
-        plugins={[Video]}
+        video={{
+          controls: true,
+        }}
+        plugins={lightboxPlugins}
       />
     </div>
   );
