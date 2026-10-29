@@ -196,7 +196,11 @@ async function addPlaylist(id: string, tracks: Track[]) {
 			}
 		}
 
-		trackDataArray.push({ track, playback: trackPlayback });
+		trackDataArray.splice(
+			getRandomInt(0, trackDataArray.length), 
+			0, 
+			{ track, playback: trackPlayback }
+		);
 	}
 
 	const playlist: InternalPlaylist = {
@@ -283,15 +287,9 @@ async function changePlaylist(id: string) {
 		}
 		
 		const trackIndexOld = trackState?.index ?? -1;
-
-		if (possibleTrackIndexes.length >= 2) {
-			const index = possibleTrackIndexes.indexOf(trackIndexOld);
-			if (index >= 0) {
-				possibleTrackIndexes.splice(index, 1);
-			}
-		}
-		
-		const trackIndex = possibleTrackIndexes[getRandomInt(0, possibleTrackIndexes.length)];
+		const trackIndex = possibleTrackIndexes[
+			(Math.max(possibleTrackIndexes.indexOf(trackIndexOld), -1) + 1) % possibleTrackIndexes.length
+		];
 
 		const track = playlist.tracks[trackIndex].track;
 		const trackPlayback = playlist.tracks[trackIndex].playback!;
@@ -393,15 +391,9 @@ async function next() {
 
 	const trackState = playlist.currentTrackState;
 	const trackIndexOld = trackState?.index ?? -1;
-
-	if (possibleTrackIndexes.length >= 2) {
-		const index = possibleTrackIndexes.indexOf(trackIndexOld);
-		if (index >= 0) {
-			possibleTrackIndexes.splice(index, 1);
-		}
-	}
-
-	const trackIndex = possibleTrackIndexes[getRandomInt(0, possibleTrackIndexes.length)];
+	const trackIndex = possibleTrackIndexes[
+		(Math.max(possibleTrackIndexes.indexOf(trackIndexOld), -1) + 1) % possibleTrackIndexes.length
+	];
 
 	const track = playlist.tracks[trackIndex].track;
 	const trackPlayback = playlist.tracks[trackIndex].playback!;
