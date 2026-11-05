@@ -35,24 +35,3 @@
 .popup-card .popup-next-button {
 	height: 2.5rem;
 }
-
-.popup-card .popup-gallery {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
-	gap: 0.2rem;
-	align-items: center;
-}
-
-.popup-card .popup-gallery a {
-	display: block;
-	overflow: hidden;
-	border-radius: 8px;
-}
-
-.popup-card .popup-gallery img,
-.popup-card .popup-gallery video {
-	display: block;
-	width: 100%;
-	aspect-ratio: 1/1;
-	object-fit: cover;
-}
