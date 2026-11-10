@@ -1,3 +1,23 @@
+const ENCRYPTED_URI_PREFIX = 'encrypted:';
+
+export type EncryptedUri = `${typeof ENCRYPTED_URI_PREFIX}${string}`;
+
+function isEncryptedUri(value: unknown): value is EncryptedUri {
+    return typeof value === 'string' && value.toLowerCase().startsWith(ENCRYPTED_URI_PREFIX);
+}
+
+function encryptUri(uri: string): EncryptedUri {
+    return `${ENCRYPTED_URI_PREFIX}${encodeURIComponent(uri)}`;
+}
+
+function decryptUri(encryptedUri: EncryptedUri | (string & {})): string {
+    if (!isEncryptedUri(encryptedUri)) {
+        throw new Error(`URL must start with ${ENCRYPTED_URI_PREFIX}`);
+    }
+
+    return decodeURIComponent(encryptedUri.substring(ENCRYPTED_URI_PREFIX.length));
+}
+
 const IV_LENGTH = 12;
 
 async function encrypt(data: Uint8Array<ArrayBuffer>, encryptionKey: string) {
@@ -43,6 +63,9 @@ async function decrypt(encryptedData: Uint8Array<ArrayBuffer>, encryptionKey: st
 }
 
 const Encryption = {
+    isEncryptedUri,
+    encryptUri,
+    decryptUri,
     encrypt,
     decrypt,
 };

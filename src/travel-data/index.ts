@@ -1,7 +1,7 @@
 import { useMemo } from "react";
-import SettingsStorage from "../settings";
 import Translations from "../translations";
 import Utils from "../common/utils";
+import Encryption from "../encryption";
 import { useSettings } from "../settings/components/hooks";
 
 export type TravelData = {
@@ -108,34 +108,25 @@ const useTravelData = (): UseTravelDataResult => {
             return;
         }
 
-        const encryptedPrefix = 'encrypted:';
-
         const currentDirectory = getCurrentDirectory(dataUrl);
-
-        data.places.forEach(place => {
-            if (!Array.isArray(place?.gallery)) {
-                return;
-            }
-
-            place.gallery = place.gallery.map(image => 
-                image.startsWith('./') || image.startsWith('.\\')
-                ? (currentDirectory + image.substring(2))
-                : image
-            );
-        });
 
         data.places.forEach(place => {
             if (!Array.isArray(place?.tracks)) {
                 return;
             }
 
-            place.tracks = place.tracks.map(track => 
-                track.startsWith('./') || track.startsWith('.\\')
-                ? (currentDirectory + track.substring(2))
-                : track.toLowerCase().startsWith(encryptedPrefix) && (track.startsWith('./', encryptedPrefix.length) || track.startsWith('.\\', encryptedPrefix.length))
-                ? (track.substring(0, encryptedPrefix.length) + currentDirectory + track.substring(encryptedPrefix.length + 2))
-                : track
-            );
+            place.tracks = place.tracks.map(track => {
+                if (Encryption.isEncryptedUri(track)) {
+                    const uri = Encryption.decryptUri(track);
+                    return uri.startsWith('./') || uri.startsWith('.\\')
+                        ? Encryption.encryptUri(currentDirectory + uri.substring(2))
+                        : track;
+                }
+
+                return typeof track === 'string' && (track.startsWith('./') || track.startsWith('.\\'))
+                    ? currentDirectory + track.substring(2)
+                    : track;
+            });
         });
     }
     function getCurrentDirectory(dataUrl: string) {

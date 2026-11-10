@@ -14,8 +14,6 @@ const _state: InternalState = {
     currentTrackState: null,
 };
 
-const TRACK_PREFIX = 'encrypted:';
-
 let decryptedTrackUrl: string | null = null;
 let playbackStateChangedListener: PlaybackEventListener | null = null;
 
@@ -24,7 +22,11 @@ async function decryptTrack(track: Track) {
         throw new Error(`Unexpected track type: ${typeof track}`);
     }
 
-    const response = await fetch(track.slice(TRACK_PREFIX.length));
+    if (!Encryption.isEncryptedUri(track)) {
+        throw new Error(`Track must be an encrypted URI: ${track}`);
+    }
+
+    const response = await fetch(Encryption.decryptUri(track));
     if (!response.ok) {
         throw new Error(`Failed to fetch encrypted file. Status: ${response.status}`);
     }
@@ -63,15 +65,7 @@ function getState() {
 }
 
 async function canPlay(track: Track) {
-    if (typeof track !== 'string') {
-        return false;
-    }
-
-    if (!track.toLowerCase().startsWith(TRACK_PREFIX)) {
-        return false;
-    }
-
-    return true;
+    return Encryption.isEncryptedUri(track);
 }
 
 async function play(track: Track, position: number = 0) {
