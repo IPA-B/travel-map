@@ -336,6 +336,56 @@ function joinClassNames(...classNames: (string | null | undefined)[]): string {
     return result;
 }
 
+
+const contentTypesByExtension: Record<string, string> = {
+    aac: 'audio/aac',
+    aiff: 'audio/aiff',
+    ape: 'audio/ape',
+    avif: 'image/avif',
+    avi: 'video/x-msvideo',
+    bmp: 'image/bmp',
+    flac: 'audio/flac',
+    gif: 'image/gif',
+    heic: 'image/heic',
+    heif: 'image/heif',
+    ico: 'image/x-icon',
+    jfif: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    jpg: 'image/jpeg',
+    m4a: 'audio/mp4',
+    m4v: 'video/mp4',
+    mid: 'audio/midi',
+    midi: 'audio/midi',
+    mkv: 'video/x-matroska',
+    mov: 'video/quicktime',
+    mp3: 'audio/mpeg',
+    mp4: 'video/mp4',
+    oga: 'audio/ogg',
+    ogg: 'audio/ogg',
+    ogv: 'video/ogg',
+    opus: 'audio/opus',
+    png: 'image/png',
+    svg: 'image/svg+xml',
+    tif: 'image/tiff',
+    tiff: 'image/tiff',
+    wav: 'audio/wav',
+    wave: 'audio/wav',
+    weba: 'audio/webm',
+    webm: 'video/webm',
+    webp: 'image/webp',
+    wma: 'audio/x-ms-wma',
+    wmv: 'video/x-ms-wmv',
+    woff: 'font/woff',
+    woff2: 'font/woff2',
+};
+
+function getContentType(url: string) {
+    const pathname = url.split(/[?#]/, 1)[0] ?? '';
+    const fileName = pathname.split(/[\\/]/).pop() ?? '';
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    return extension ? contentTypesByExtension[extension] : undefined;
+}
+
 const Utils = {
     createEventBus,
     useFetch,
@@ -346,6 +396,7 @@ const Utils = {
     waitAndExecute,
     skipOrExecute,
     joinClassNames,
+    getContentType,
 };
 
 export default Utils;

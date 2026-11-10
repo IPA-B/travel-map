@@ -100,7 +100,6 @@ type GalleryProps = {
 export const Gallery: FC<GalleryProps> = ({ items }) => {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
-  const lightboxPlugins = useMemo(() => [Video, EncryptedImagePlugin], []);
 
   const onItemClick = useCallback((event: MouseEvent, index: number) => {
     event.preventDefault();
@@ -139,7 +138,7 @@ export const Gallery: FC<GalleryProps> = ({ items }) => {
         index={lightboxIndex}
         slides={slides}
         video={{ controls: true }}
-        plugins={lightboxPlugins}
+        plugins={[Video, EncryptedImagePlugin]}
       />
     </>
   );
