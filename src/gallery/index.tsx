@@ -1,10 +1,10 @@
 import 'yet-another-react-lightbox/styles.css';
 import './index.css';
 
-import { FC, MouseEvent, useCallback, useMemo, useState } from 'react';
+import { FC, MouseEvent, ReactNode, useCallback, useMemo, useState } from 'react';
 import Lightbox from 'yet-another-react-lightbox';
 import Video from 'yet-another-react-lightbox/plugins/video';
-import type { Slide } from 'yet-another-react-lightbox';
+import type { Slide, SlideTypeKey, SlideTypes } from 'yet-another-react-lightbox';
 
 const getVideoMimeType = (src: string) => {
   const videoMimeTypes: Record<string, string> = {
@@ -20,6 +20,58 @@ const getVideoMimeType = (src: string) => {
   return extension ? videoMimeTypes[extension] : undefined;
 };
 
+type SlidePreviewProps<TSlideTypeKey extends SlideTypeKey = SlideTypeKey> = {
+  slide: SlideTypes[TSlideTypeKey],
+  onClick?: (event: MouseEvent) => void,
+}
+
+const slidePreviewByTypeKey: { [TSlideTypeKey in SlideTypeKey]: (props: SlidePreviewProps<TSlideTypeKey>) => ReactNode } = {
+  image: ({ slide, onClick }) => {
+    return (
+      <a
+        key={slide.src}
+        href={slide.src}
+        target="_blank"
+        rel="noreferrer"
+        onClick={onClick}
+      >
+        <img
+            src={slide.src}
+            alt="img"
+            loading="lazy"
+            decoding="async"
+          />
+      </a>
+    );
+  },
+
+  video: ({ slide, onClick }) => {
+    const src = slide.sources.length > 0 ? slide.sources[0].src : null;
+    return src ? (
+      <a
+        key={src}
+        href={src}
+        target="_blank"
+        rel="noreferrer"
+        onClick={onClick}
+      >
+        <video 
+          src={src} 
+          aria-label="Video preview" 
+          muted 
+          playsInline 
+          preload="metadata" 
+        />
+      </a>
+    ) : (console.error(`No sources in the video slide!`), null);
+  },
+};
+
+const SlidePreview: FC<SlidePreviewProps> = (props) => 
+  typeof props.slide.type === 'string'
+  ? slidePreviewByTypeKey[props.slide.type](props as any)
+  : (console.error(`Empty slide type!`), null);
+
 type GalleryProps = {
   items: string[],
 };
@@ -29,7 +81,7 @@ export const Gallery: FC<GalleryProps> = ({ items }) => {
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const lightboxPlugins = useMemo(() => [Video], []);
 
-  const onItemClick = useCallback((event: MouseEvent<HTMLAnchorElement>, index: number) => {
+  const onItemClick = useCallback((event: MouseEvent, index: number) => {
     event.preventDefault();
     setLightboxIndex(index);
     setLightboxOpen(true);
@@ -47,23 +99,11 @@ export const Gallery: FC<GalleryProps> = ({ items }) => {
   return (
     <>
       <div className="gallery">
-        {items.slice(0, 4).map((src, index) => (
-          <a
-            key={src}
-            href={src}
-            target="_blank"
-            rel="noreferrer"
-            onClick={(event) => onItemClick(event, index)}
-          >
-            {getVideoMimeType(src)
-              ? <video src={src} aria-label="Video preview" muted playsInline preload="metadata" />
-              : <img
-                  src={src}
-                  alt="img"
-                  loading="lazy"
-                  decoding="async"
-                />}
-          </a>
+        {slides.slice(0, 4).map((slide, index) => (
+          <SlidePreview 
+            slide={slide} 
+            onClick={(e) => onItemClick(e, index)} 
+          />
         ))}
       </div>
 
