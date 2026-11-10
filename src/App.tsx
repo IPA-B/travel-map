@@ -9,7 +9,6 @@ import Player from './player';
 import Utils from './common/utils';
 import { SettingsButton } from './settings/components/settings-button';
 
-// TODO add encrypted: support to gallery
 // TODO BUG cannot open popup after closing it with clicking to marker
 // TODO TravelMap refactor (create LeafletMap react component with LeafletMarker component). Remove L.Map dependency from TravelMap
 // TODO add playback logo, colors and service link to track to player as it may be required by some services (e.g. spotify)

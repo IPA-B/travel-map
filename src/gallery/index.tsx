@@ -6,22 +6,11 @@ import Lightbox from 'yet-another-react-lightbox';
 import Video from 'yet-another-react-lightbox/plugins/video';
 import type { Slide, SlideTypeKey, SlideTypes } from 'yet-another-react-lightbox';
 import Encryption from '../encryption';
+import Utils from '../common/utils';
 import EncryptedImage from './encrypted-image';
 import EncryptedImagePlugin from './encrypted-image-plugin';
-
-const getVideoMimeType = (src: string) => {
-  const videoMimeTypes: Record<string, string> = {
-    mp4: 'video/mp4',
-    m4v: 'video/mp4',
-    webm: 'video/webm',
-    ogv: 'video/ogg',
-    ogg: 'video/ogg',
-  };
-
-  const fileName = src.split(/[?#]/, 1)[0];
-  const extension = fileName?.split('.').pop()?.toLowerCase();
-  return extension ? videoMimeTypes[extension] : undefined;
-};
+import EncryptedVideo from './encrypted-video';
+import EncryptedVideoPlugin from './encrypted-video-plugin';
 
 type SlidePreviewProps<TSlideTypeKey extends SlideTypeKey = SlideTypeKey> = {
   slide: SlideTypes[TSlideTypeKey];
@@ -86,6 +75,24 @@ const slidePreviewByTypeKey: { [TSlideTypeKey in SlideTypeKey]: (props: SlidePre
       </a>
     );
   },
+
+  'encrypted-video': ({ slide, onClick }) => (
+    <a
+      key={slide.src}
+      href={slide.src}
+      aria-label="Open encrypted video"
+      onClick={onClick}
+    >
+      <EncryptedVideo
+        src={slide.src}
+        contentType={slide.contentType}
+        aria-label="Video preview"
+        muted
+        playsInline
+        preload="metadata"
+      />
+    </a>
+  ),
 };
 
 const SlidePreview: FC<SlidePreviewProps> = (props) => 
@@ -109,13 +116,16 @@ export const Gallery: FC<GalleryProps> = ({ items }) => {
 
   const slides = useMemo<Slide[]>(() => items.map<Slide>(src => {
     if (Encryption.isEncryptedUri(src)) {
-      return { type: 'encrypted-image', src };
+      const contentType = Utils.getContentType(Encryption.decryptUri(src));
+      return contentType?.startsWith('video/')
+        ? { type: 'encrypted-video', src, contentType }
+        : { type: 'encrypted-image', src };
+    } else {
+      const contentType = Utils.getContentType(src);
+      return contentType?.startsWith('video/')
+        ? { type: 'video', sources: [{ src, type: contentType }] }
+        : { type: 'image', src };
     }
-
-    const videoMimeType = getVideoMimeType(src);
-    return videoMimeType
-      ? { type: 'video', sources: [{ src, type: videoMimeType }] }
-      : { type: 'image', src };
   }), [items]);
 
   const onLightboxClose = useCallback(() => setLightboxOpen(false), []);
@@ -138,7 +148,7 @@ export const Gallery: FC<GalleryProps> = ({ items }) => {
         index={lightboxIndex}
         slides={slides}
         video={{ controls: true }}
-        plugins={[Video, EncryptedImagePlugin]}
+        plugins={[Video, EncryptedImagePlugin, EncryptedVideoPlugin]}
       />
     </>
   );
