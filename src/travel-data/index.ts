@@ -110,23 +110,22 @@ const useTravelData = (): UseTravelDataResult => {
 
         const currentDirectory = getCurrentDirectory(dataUrl);
 
-        data.places.forEach(place => {
-            if (!Array.isArray(place?.tracks)) {
-                return;
+        const replaceCurrentDirectoryInUri = (uri: string): string => {
+            if (Encryption.isEncryptedUri(uri)) {
+                const decryptedUri = Encryption.decryptUri(uri);
+                return decryptedUri.startsWith('./') || decryptedUri.startsWith('.\\')
+                    ? Encryption.encryptUri(currentDirectory + decryptedUri.substring(2))
+                    : uri;
             }
 
-            place.tracks = place.tracks.map(track => {
-                if (Encryption.isEncryptedUri(track)) {
-                    const uri = Encryption.decryptUri(track);
-                    return uri.startsWith('./') || uri.startsWith('.\\')
-                        ? Encryption.encryptUri(currentDirectory + uri.substring(2))
-                        : track;
-                }
+            return typeof uri === 'string' && (uri.startsWith('./') || uri.startsWith('.\\'))
+                ? currentDirectory + uri.substring(2)
+                : uri;
+        }
 
-                return typeof track === 'string' && (track.startsWith('./') || track.startsWith('.\\'))
-                    ? currentDirectory + track.substring(2)
-                    : track;
-            });
+        data.places.forEach(place => {
+            if (Array.isArray(place?.gallery)) place.gallery = place.gallery.map(replaceCurrentDirectoryInUri);
+            if (Array.isArray(place?.tracks)) place.tracks = place.tracks.map(replaceCurrentDirectoryInUri);
         });
     }
     function getCurrentDirectory(dataUrl: string) {

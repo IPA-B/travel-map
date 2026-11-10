@@ -5,6 +5,9 @@ import { FC, MouseEvent, ReactNode, useCallback, useMemo, useState } from 'react
 import Lightbox from 'yet-another-react-lightbox';
 import Video from 'yet-another-react-lightbox/plugins/video';
 import type { Slide, SlideTypeKey, SlideTypes } from 'yet-another-react-lightbox';
+import Encryption from '../encryption';
+import EncryptedImage from './encrypted-image';
+import EncryptedImagePlugin from './encrypted-image-plugin';
 
 const getVideoMimeType = (src: string) => {
   const videoMimeTypes: Record<string, string> = {
@@ -21,12 +24,12 @@ const getVideoMimeType = (src: string) => {
 };
 
 type SlidePreviewProps<TSlideTypeKey extends SlideTypeKey = SlideTypeKey> = {
-  slide: SlideTypes[TSlideTypeKey],
-  onClick?: (event: MouseEvent) => void,
+  slide: SlideTypes[TSlideTypeKey];
+  onClick?: (event: MouseEvent) => void;
 }
 
 const slidePreviewByTypeKey: { [TSlideTypeKey in SlideTypeKey]: (props: SlidePreviewProps<TSlideTypeKey>) => ReactNode } = {
-  image: ({ slide, onClick }) => {
+  'image': ({ slide, onClick }) => {
     return (
       <a
         key={slide.src}
@@ -37,7 +40,7 @@ const slidePreviewByTypeKey: { [TSlideTypeKey in SlideTypeKey]: (props: SlidePre
       >
         <img
             src={slide.src}
-            alt="img"
+            alt={slide.alt ?? 'img'}
             loading="lazy"
             decoding="async"
           />
@@ -45,7 +48,7 @@ const slidePreviewByTypeKey: { [TSlideTypeKey in SlideTypeKey]: (props: SlidePre
     );
   },
 
-  video: ({ slide, onClick }) => {
+  'video': ({ slide, onClick }) => {
     const src = slide.sources.length > 0 ? slide.sources[0].src : null;
     return src ? (
       <a
@@ -65,6 +68,24 @@ const slidePreviewByTypeKey: { [TSlideTypeKey in SlideTypeKey]: (props: SlidePre
       </a>
     ) : (console.error(`No sources in the video slide!`), null);
   },
+
+  'encrypted-image': ({ slide, onClick }) => {
+    return (
+      <a
+        key={slide.src}
+        href={slide.src}
+        aria-label={slide.alt ?? 'Open encrypted image'}
+        onClick={onClick}
+      >
+        <EncryptedImage
+          src={slide.src}
+          alt={slide.alt ?? 'img'}
+          loading="lazy"
+          decoding="async"
+        />
+      </a>
+    );
+  },
 };
 
 const SlidePreview: FC<SlidePreviewProps> = (props) => 
@@ -79,7 +100,7 @@ type GalleryProps = {
 export const Gallery: FC<GalleryProps> = ({ items }) => {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
-  const lightboxPlugins = useMemo(() => [Video], []);
+  const lightboxPlugins = useMemo(() => [Video, EncryptedImagePlugin], []);
 
   const onItemClick = useCallback((event: MouseEvent, index: number) => {
     event.preventDefault();
@@ -88,6 +109,10 @@ export const Gallery: FC<GalleryProps> = ({ items }) => {
   }, []);
 
   const slides = useMemo<Slide[]>(() => items.map<Slide>(src => {
+    if (Encryption.isEncryptedUri(src)) {
+      return { type: 'encrypted-image', src };
+    }
+
     const videoMimeType = getVideoMimeType(src);
     return videoMimeType
       ? { type: 'video', sources: [{ src, type: videoMimeType }] }
@@ -101,6 +126,7 @@ export const Gallery: FC<GalleryProps> = ({ items }) => {
       <div className="gallery">
         {slides.slice(0, 4).map((slide, index) => (
           <SlidePreview 
+            key={index}
             slide={slide} 
             onClick={(e) => onItemClick(e, index)} 
           />
