@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type ImgHTMLAttributes } from 'react';
+import { useEffect, useRef, type ImgHTMLAttributes } from 'react';
 import { useEncryptedFile } from '../encryption/components/hooks';
-import { useMergedRef } from '../common/utils/components/hooks';
+import { useIsVisible, useMergedRef } from '../common/utils/components/hooks';
 
 export type EncryptedImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & {
   ref?: React.Ref<HTMLImageElement>,
@@ -13,35 +13,8 @@ const EncryptedImage = ({ ref, src, contentType, ...imgProps }: EncryptedImagePr
 
   const imageRef = useRef<HTMLImageElement>(null);
   const imageRefMerged = useMergedRef(ref, imageRef);
-  const [isVisible, setIsVisible] = useState(!isLazy);
+  const isVisible = useIsVisible(imageRef, isLazy);
   const { src: imageSrc, error: imageError } = useEncryptedFile(!isLazy || isVisible ? src : null, contentType);
-
-  useEffect(() => {
-    if (!isLazy) {
-      setIsVisible(true);
-      return;
-    }
-
-    const element = imageRef.current;
-    if (!element) {
-      return;
-    }
-
-    if (typeof IntersectionObserver === 'undefined') {
-      setIsVisible(true);
-      return;
-    }
-
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry?.isIntersecting) {
-        setIsVisible(true);
-        observer.disconnect();
-      }
-    });
-
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [isLazy]);
 
   useEffect(() => {
     if (imageError && imageRef.current) {

@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSettings } from '../../settings/components/hooks';
 import Encryption from '..';
-import Utils from '../../common/utils';
-import Mimetics from 'mimetics';
 
 type EncryptedFile = {
     key: string;

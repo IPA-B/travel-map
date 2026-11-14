@@ -1,4 +1,4 @@
-import { useEffect, useState, Ref, useCallback, useRef, useLayoutEffect } from 'react';
+import { useEffect, useState, Ref, RefObject, useCallback, useRef, useLayoutEffect } from 'react';
 
 export type FetchState<T> = {
     data: T | null;
@@ -44,6 +44,42 @@ export function useFetch<T>(url: string, parse: (response: Response) => Promise<
     }, [url]);
 
     return state;
+}
+
+export function useIsVisible<T extends Element>(
+    ref: RefObject<T | null>,
+    shouldObserve = true,
+): boolean {
+    const [isVisible, setIsVisible] = useState(!shouldObserve);
+
+    useEffect(() => {
+        if (!shouldObserve) {
+            setIsVisible(true);
+            return;
+        }
+
+        const element = ref.current;
+        if (!element) {
+            return;
+        }
+
+        if (typeof IntersectionObserver === 'undefined') {
+            setIsVisible(true);
+            return;
+        }
+
+        const observer = new IntersectionObserver(([entry]) => {
+            if (entry?.isIntersecting) {
+                setIsVisible(true);
+                observer.disconnect();
+            }
+        });
+
+        observer.observe(element);
+        return () => observer.disconnect();
+    }, [ref, shouldObserve]);
+
+    return isVisible;
 }
 
 

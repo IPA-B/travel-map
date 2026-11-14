@@ -65,6 +65,15 @@ async function decrypt(encryptedData: Uint8Array<ArrayBuffer>, encryptionKey: st
     return decryptedData;
 }
 
+// To fix incorrect mp4 detection
+Mimetics.addDefinitions([{
+    'tag': 'video',
+    'type': 'mp4',
+    'ext': 'mp4',
+    'mime': 'video/mp4',
+    'magic': ['*', '*', '*', '*', 102, 116, 121, 112] as any,
+}]);
+
 async function loadEncryptedFile(src: string, encryptionKey: string, contentType?: string | null): Promise<Blob> {
     const fileUrl = Encryption.decryptUri(src);
     const response = await fetch(fileUrl);
@@ -77,7 +86,8 @@ async function loadEncryptedFile(src: string, encryptionKey: string, contentType
 
     let contentTypeResolved = contentType ?? Utils.getContentType(fileUrl);
     if (!contentTypeResolved) {
-        const fileType = await Mimetics.parseAsync(decryptedData);
+        const decryptedDataUint8 = new Uint8Array(decryptedData);
+        const fileType = await Mimetics.parseAsync(decryptedDataUint8);
         contentTypeResolved = fileType?.mime;
     }
 

@@ -7,10 +7,8 @@ import Video from 'yet-another-react-lightbox/plugins/video';
 import type { Slide, SlideTypeKey, SlideTypes } from 'yet-another-react-lightbox';
 import Encryption from '../encryption';
 import Utils from '../common/utils';
-import EncryptedImage from './encrypted-image';
-import EncryptedImagePlugin from './encrypted-image-plugin';
-import EncryptedVideo from './encrypted-video';
-import EncryptedVideoPlugin from './encrypted-video-plugin';
+import EncryptedSlidePreview from './encrypted-slide-preview';
+import EncryptedPlugin from './encrypted-plugin';
 
 type SlidePreviewProps<TSlideTypeKey extends SlideTypeKey = SlideTypeKey> = {
   slide: SlideTypes[TSlideTypeKey];
@@ -58,40 +56,11 @@ const slidePreviewByTypeKey: { [TSlideTypeKey in SlideTypeKey]: (props: SlidePre
     ) : (console.error(`No sources in the video slide!`), null);
   },
 
-  'encrypted-image': ({ slide, onClick }) => {
-    return (
-      <a
-        key={slide.src}
-        href={slide.src}
-        aria-label={slide.alt ?? 'Open encrypted image'}
-        onClick={onClick}
-      >
-        <EncryptedImage
-          src={slide.src}
-          alt={slide.alt ?? 'img'}
-          loading="lazy"
-          decoding="async"
-        />
-      </a>
-    );
-  },
-
-  'encrypted-video': ({ slide, onClick }) => (
-    <a
-      key={slide.src}
-      href={slide.src}
-      aria-label="Open encrypted video"
+  'encrypted': ({ slide, onClick }) => (
+    <EncryptedSlidePreview
+      slide={slide}
       onClick={onClick}
-    >
-      <EncryptedVideo
-        src={slide.src}
-        contentType={slide.contentType}
-        aria-label="Video preview"
-        muted
-        playsInline
-        preload="metadata"
-      />
-    </a>
+    />
   ),
 };
 
@@ -117,9 +86,7 @@ export const Gallery: FC<GalleryProps> = ({ items }) => {
   const slides = useMemo<Slide[]>(() => items.map<Slide>(src => {
     if (Encryption.isEncryptedUri(src)) {
       const contentType = Utils.getContentType(Encryption.decryptUri(src));
-      return contentType?.startsWith('video/')
-        ? { type: 'encrypted-video', src, contentType }
-        : { type: 'encrypted-image', src };
+      return { type: 'encrypted', src, contentType };
     } else {
       const contentType = Utils.getContentType(src);
       return contentType?.startsWith('video/')
@@ -148,7 +115,7 @@ export const Gallery: FC<GalleryProps> = ({ items }) => {
         index={lightboxIndex}
         slides={slides}
         video={{ controls: true }}
-        plugins={[Video, EncryptedImagePlugin, EncryptedVideoPlugin]}
+        plugins={[Video, EncryptedPlugin]}
       />
     </>
   );
