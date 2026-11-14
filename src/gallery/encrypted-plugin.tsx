@@ -158,6 +158,7 @@ const RenderEncryptedVideoSlide = ({
         playsInline={playsInline}
         disablePictureInPicture={slide.video?.disablePictureInPicture ?? video?.disablePictureInPicture}
         disableRemotePlayback={slide.video?.disableRemotePlayback ?? video?.disableRemotePlayback}
+        style={{ maxWidth: '100%', maxHeight: '100%' }}
         onPlay={onPlay}
         onEnded={onEnded}
         onError={onError}
