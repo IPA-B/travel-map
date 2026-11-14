@@ -114,7 +114,7 @@ export const Gallery: FC<GalleryProps> = ({ items }) => {
         close={onLightboxClose}
         index={lightboxIndex}
         slides={slides}
-        video={{ controls: true }}
+        video={{ controls: true, disablePictureInPicture: true }}
         plugins={[Video, EncryptedPlugin]}
       />
     </>
