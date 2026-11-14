@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ImgHTMLAttributes } from 'react';
 import { useEncryptedFile } from '../encryption/components/hooks';
-import Utils from '../common/utils';
+import { useMergedRef } from '../common/utils/components/hooks';
 
 export type EncryptedImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & {
   ref?: React.Ref<HTMLImageElement>,
@@ -12,7 +12,7 @@ const EncryptedImage = ({ ref, src, contentType, ...imgProps }: EncryptedImagePr
   const isLazy = imgProps.loading === 'lazy';
 
   const imageRef = useRef<HTMLImageElement>(null);
-  const imageRefMerged = Utils.useMergedRef(ref, imageRef);
+  const imageRefMerged = useMergedRef(ref, imageRef);
   const [isVisible, setIsVisible] = useState(!isLazy);
   const { src: imageSrc, error: imageError } = useEncryptedFile(!isLazy || isVisible ? src : null, contentType);
 

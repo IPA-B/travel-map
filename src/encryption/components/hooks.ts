@@ -33,16 +33,7 @@ export function useEncryptedFile(
 
         void (async () => {
             try {
-                const fileUrl = Encryption.decryptUri(src);
-                const response = await fetch(fileUrl);
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch encrypted file. Status: ${response.status}`);
-                }
-
-                const encryptedData = new Uint8Array(await response.arrayBuffer());
-                const decryptedData = await Encryption.decrypt(encryptedData, encryptionKey);
-                const contentTypeResolved = contentType ?? Utils.getContentType(fileUrl) ?? Mimetics.parse(decryptedData)?.mime;
-                const blob = new Blob([decryptedData], { type: contentTypeResolved });
+                const blob = await Encryption.loadEncryptedFile(src, encryptionKey, contentType);
 
                 if (active) {
                     objectUrl = URL.createObjectURL(blob);

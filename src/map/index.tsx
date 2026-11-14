@@ -8,6 +8,7 @@ import Utils from '../common/utils';
 import Player from '../player';
 import { useSettingsCurrentPlaceId } from '../settings/components/hooks';
 import { TravelMapMarker } from './marker';
+import { useMergedRef, useRefModifier } from '../common/utils/components/hooks';
 
 export type TravelMapProps = {
   mapRef?: Ref<L.Map>;
@@ -16,7 +17,7 @@ export type TravelMapProps = {
 
 const TravelMapBase: FC<TravelMapProps> = ({ mapRef }) => {
   const mapElementRef = useRef<HTMLDivElement>(null);
-  const [setMapRef, cleanupMapRef] = Utils.useRefModifier(mapRef);
+  const [setMapRef, cleanupMapRef] = useRefModifier(mapRef);
 
   useEffect(() => {
     if (!mapElementRef.current) {
@@ -311,7 +312,7 @@ const TravelMapWithMarkers: FC<TravelMapProps> = (props) => {
   const [settingsCurrentPlaceId] = useSettingsCurrentPlaceId();
 
   const [map, setMap] = useState<L.Map | null>(null);
-  const mapRef = Utils.useMergedRef(setMap, props.mapRef);
+  const mapRef = useMergedRef(setMap, props.mapRef);
 
   const [markerPlaces, setMarkerPlaces] = useState<TravelPlace[][]>([]);
 

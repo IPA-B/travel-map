@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import Translations from "../translations";
-import Utils from "../common/utils";
 import Encryption from "../encryption";
 import { useSettings } from "../settings/components/hooks";
+import { useFetch } from "../common/utils/components/hooks";
 
 export type TravelData = {
   welcome?: {
@@ -32,7 +32,7 @@ const useTravelData = (): UseTravelDataResult => {
     const [settings] = useSettings();
     const dataUrl = settings.currentData?.url ?? '';
 
-    const { data, isLoading, error } = Utils.useFetch<unknown>(dataUrl, (r) => r.json());
+    const { data, isLoading, error } = useFetch<unknown>(dataUrl, (r) => r.json());
 
     const travelData = useMemo<TravelData | null>(() => {
         if (typeof data !== 'object' || data === null) {

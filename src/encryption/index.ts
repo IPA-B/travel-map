@@ -1,3 +1,6 @@
+import Utils from "../common/utils";
+import Mimetics from 'mimetics';
+
 const ENCRYPTED_URI_PREFIX = 'encrypted:';
 
 export type EncryptedUri = `${typeof ENCRYPTED_URI_PREFIX}${string}`;
@@ -62,12 +65,34 @@ async function decrypt(encryptedData: Uint8Array<ArrayBuffer>, encryptionKey: st
     return decryptedData;
 }
 
+async function loadEncryptedFile(src: string, encryptionKey: string, contentType?: string | null): Promise<Blob> {
+    const fileUrl = Encryption.decryptUri(src);
+    const response = await fetch(fileUrl);
+    if (!response.ok) {
+        throw new Error(`Failed to fetch encrypted file. Status: ${response.status}`);
+    }
+
+    const encryptedData = new Uint8Array(await response.arrayBuffer());
+    const decryptedData = await Encryption.decrypt(encryptedData, encryptionKey);
+
+    let contentTypeResolved = contentType ?? Utils.getContentType(fileUrl);
+    if (!contentTypeResolved) {
+        const fileType = await Mimetics.parseAsync(decryptedData);
+        contentTypeResolved = fileType?.mime;
+    }
+
+    const blob = new Blob([decryptedData], { type: contentTypeResolved });
+
+    return blob;
+}
+
 const Encryption = {
     isEncryptedUri,
     encryptUri,
     decryptUri,
     encrypt,
     decrypt,
+    loadEncryptedFile,
 };
 
 export default Encryption;

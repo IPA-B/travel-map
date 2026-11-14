@@ -1,6 +1,6 @@
 import { useEffect, useRef, type VideoHTMLAttributes } from 'react';
 import { useEncryptedFile } from '../encryption/components/hooks';
-import Utils from '../common/utils';
+import { useMergedRef } from '../common/utils/components/hooks';
 
 export type EncryptedVideoProps = Omit<VideoHTMLAttributes<HTMLVideoElement>, 'src'> & {
   ref?: React.Ref<HTMLVideoElement>;
@@ -11,7 +11,7 @@ export type EncryptedVideoProps = Omit<VideoHTMLAttributes<HTMLVideoElement>, 's
 const EncryptedVideo = ({ ref, src, contentType, ...videoProps }: EncryptedVideoProps) => {
   const { src: videoSrc, error } = useEncryptedFile(src, contentType);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const mergedRef = Utils.useMergedRef(ref, videoRef);
+  const mergedRef = useMergedRef(ref, videoRef);
 
   useEffect(() => {
     if (error && videoRef.current) {

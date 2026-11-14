@@ -1,8 +1,9 @@
 import './index.css';
 
-import { ButtonHTMLAttributes, DetailedHTMLProps, DialogHTMLAttributes, FC, ReactNode, useCallback, useRef } from 'react';
+import { DetailedHTMLProps, DialogHTMLAttributes, FC, ReactNode, useCallback, useRef } from 'react';
 import Utils from '../utils';
 import { CloseOutlinedIcon } from '../icons';
+import { useMergedRef } from '../utils/components/hooks';
 
 export type DialogProps = DetailedHTMLProps<DialogHTMLAttributes<HTMLDialogElement>, HTMLDialogElement> & {
 	header?: ReactNode;
@@ -15,7 +16,7 @@ export type DialogProps = DetailedHTMLProps<DialogHTMLAttributes<HTMLDialogEleme
 const DialogBase: FC<DialogProps> = ({ ref, showCloseButton, autoFocusCloseButton, className, children, ...props }) => {
 
 	const dialogRef = useRef<HTMLDialogElement>(null);
-	const mergedDialogRef = Utils.useMergedRef<HTMLDialogElement>(dialogRef, ref);
+	const mergedDialogRef = useMergedRef<HTMLDialogElement>(dialogRef, ref);
 
 	const closeDialog = useCallback(() => {
 		dialogRef.current?.close();

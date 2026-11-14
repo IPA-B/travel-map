@@ -9,9 +9,9 @@ import { Dialog } from '../../common/dialog';
 import { Button } from '../../common/button';
 import SpotifyIcons from '../../spotify/components/spotify-icons';
 import { Loader } from '../../common/loader';
-import Utils from '../../common/utils';
 import { DeleteOutlinedIcon, LockFileOutlinedIcon } from '../../common/icons';
 import { createSettingsStorageInMemory } from '../settings-storage-in-memory';
+import { useMergedRef } from '../../common/utils/components/hooks';
 
 export type SettingsDialogProps = {
     ref?: Ref<HTMLDialogElement>;
@@ -270,7 +270,7 @@ export const SettingsDialog: FC<SettingsDialogProps> = ({ ref }) => {
             observer.disconnect();
         };
     }, []);
-    const dialogRef = Utils.useMergedRef(ref, dialogRefCallback);
+    const dialogRef = useMergedRef(ref, dialogRefCallback);
 
     const onOpenedEffectEvent = useEffectEvent(() => {
         const settings = SettingsStorageInLocalStorage.getSettings();
