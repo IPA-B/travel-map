@@ -1,12 +1,31 @@
 # Travel Map
 
-Interactive travel journal built with React, TypeScript, and Leaflet. Each place can include a location, date, gallery, and tracks.
+Travel Map is a React + TypeScript travel journal that renders a world map with place markers, a gallery for each trip, and optional media/Spotify playback. It is designed to work as a static site and to load travel data from a JSON file at runtime.
 
-## Data
+## Features
 
-The app reads travel data from the configured URL in settings. Default is `./data/data.json`.
+- Full-screen Leaflet map with place markers
+- Per-place photo/video gallery
+- Local file or Spotify track playback
+- Optional encrypted media support
+- Data URL and encryption key configuration in the app
+- Localized welcome text and place titles
+- Static hosting friendly deployment model
 
-You can create the `data.json` file and the gallery on any file storage service that lets you share files, such as Cloudflare R2 or similar providers, and either supports CORS configuration or does not enforce it.
+## Quick start
+
+```bash
+npm install
+npm start
+```
+
+Then open the local URL printed by webpack-dev-server in your browser.
+
+## Data format
+
+The app reads travel data from the configured data URL. The default is `./data/data.json`.
+
+You can host the JSON file and the gallery assets on any static file service that allows public access and does not block CORS, such as Cloudflare R2 or similar providers.
 
 Example:
 
@@ -30,58 +49,60 @@ Example:
 }
 ```
 
-## Features
+Notes:
 
-- Full-screen map and markers
-- Photo/video gallery per place
-- Spotify/file track playback
-- Optional encrypted data support
-- Settings for data URL and encryption key
-- Sharing your settings with others
-- Localized titles/messages support
+- `welcome.title` and `welcome.message` are localized strings, with `default` as the fallback value.
+- Each place includes `id`, `date`, `title`, `latitude`, `longitude`, and optional `tracks` / `gallery` arrays.
+- Local media entries may be relative paths such as `./images/photo.jpg` or encrypted URIs with the `encrypted:` prefix.
 
 ## Encrypt local data files
 
-Use `scripts/encrypt-data.ps1` with PowerShell 7.2 or newer. It resolves local `./` file references relative to the input `data.json`, encrypts those files in `gallery` and `tracks` using the configured AES-GCM format, and copies already encrypted `encrypted:./` files unchanged. All hash-named assets are written directly into the output directory without preserving their source folder structure. The copied `data.json` is updated to reference each asset as `encrypted:./<sha256>`, relative to that output file. Without `-OutputDirectory`, output goes to an `__encrypted-yyyyMMdd-HHmmss` folder next to the input file.
+Use `scripts/encrypt-data.ps1` with PowerShell 7.2 or newer. The script resolves local `./` file references relative to the input `data.json`, encrypts media from the `gallery` and `tracks` fields with AES-GCM, and leaves already-encrypted `encrypted:./...` files unchanged.
 
-The script caches keyed file fingerprints and IVs in `scripts/encrypt-data.json` so the same file and key produce the same encrypted bytes on later runs. The cache contains no file contents, is authenticated, and is not placed in the generated output. It is ignored by Git, but keep it private and do not delete or edit it while continuing to encrypt with the same key; a modified cache is rejected. Run only one instance at a time with the same cache. Reusing an IV is limited to content with the same keyed SHA-256 fingerprint, and intentionally reveals when file contents match. This is a deliberate deterministic-reuse tradeoff; do not reuse the IV for different content. Use `-CachePath` to select a different private cache location; a cache is bound to the encryption key.
+Behavior summary:
+
+- Output is written to a new directory, or to a custom directory passed via `-OutputDirectory`.
+- The generated `data.json` is rewritten to reference encrypted assets as `encrypted:./<sha256>`.
+- Asset files are written directly into the output directory using a hash-based filename.
+- The script stores a keyed fingerprint/IV cache in `scripts/encrypt-data.json` by default so repeated runs with the same file and key produce the same encrypted output.
+- The cache is authenticated and intentionally deterministic for identical content. Keep it private; do not edit or delete it while continuing to encrypt with the same key.
+
+Example:
 
 ```powershell
 $encryptionKey = Read-Host -Prompt 'Encryption key' -AsSecureString
 .\scripts\encrypt-data.ps1 -DataPath .\data\data.json -EncryptionKey $encryptionKey
 ```
 
-To choose an output folder, pass `-OutputDirectory .\encrypted-data`. To choose a cache location, pass `-CachePath C:\private\encrypt-data.json`. Keep the encryption key and cache safe; the key is required to view encrypted media, and the cache is required to reproduce the same encrypted files later.
+Optional arguments:
+
+```powershell
+.\scripts\encrypt-data.ps1 -DataPath .\data\data.json -EncryptionKey $encryptionKey -OutputDirectory .\encrypted-data
+.\scripts\encrypt-data.ps1 -DataPath .\data\data.json -EncryptionKey $encryptionKey -CachePath C:\private\encrypt-data.json
+```
+
+Keep both the encryption key and the cache file safe. The key is required to view encrypted media, and the cache is required to reproduce the same encrypted files later.
 
 ## Spotify
 
-If you plan to use Spotify playback, create your own Spotify app in the Spotify Developer Dashboard and replace the client ID in the Spotify module with your app's client ID.
+If you want Spotify playback, create your own app in the Spotify Developer Dashboard and replace the client ID used by the app with your own value.
 
-## Deploy and run
+## Build and deploy
 
-This is a static React app. Run `npm run build` and publish the generated output to any static host.
-
-### Build
+This is a static React app. Build it with:
 
 ```bash
 npm run build
 ```
 
-### Run locally
-
-```bash
-npm install
-npm start
-```
-
-Then open the local URL from webpack-dev-server.
+Then publish the generated output to any static host.
 
 ### GitHub Pages
 
 1. Push the project to GitHub.
-2. In the repository settings, open **Pages**.
+2. Open the repository settings and choose **Pages**.
 3. Set the source to **GitHub Actions**.
 4. Push to the main branch and wait for the workflow to finish.
-5. Use the published URL from the GitHub Pages settings or Actions output.
+5. Use the URL shown in the GitHub Pages settings or Actions output.
 
-This project is ready to be published as a GitHub Pages site without changing the app code.
+This project is ready to be published as a GitHub Pages site without changing the application code.
