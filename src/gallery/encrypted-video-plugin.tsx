@@ -7,7 +7,6 @@ import {
   CLASS_FLEX_CENTER,
   CLASS_SLIDE_WRAPPER,
   SlideEncryptedVideo,
-  useContainerRect,
   useEvents,
   useLightboxProps,
   type PluginProps,
@@ -21,8 +20,6 @@ declare module 'yet-another-react-lightbox' {
     src: string;
     contentType?: string;
     poster?: string;
-    width?: number;
-    height?: number;
     autoPlay?: boolean;
     controls?: boolean;
     controlsList?: string;
@@ -52,7 +49,6 @@ const RenderEncryptedVideoSlide = ({
 }: RenderSlideProps<SlideEncryptedVideo>) => {
   const { video } = useLightboxProps();
   const { publish } = useEvents();
-  const { setContainerRef, containerRect } = useContainerRect();
   const videoRef = useRef<HTMLVideoElement>(null);
   const autoPlay = slide.autoPlay ?? video?.autoPlay ?? false;
   const controls = slide.controls ?? video?.controls ?? true;
@@ -96,55 +92,32 @@ const RenderEncryptedVideoSlide = ({
     }
   }, [offset, publish]);
 
-  const { width, height } = slide;
-  const videoStyle: React.CSSProperties = {
-    maxWidth: '100%',
-    maxHeight: '100%',
-  };
-  if (width && height && containerRect) {
-    const widthBound = width / height > containerRect.width / containerRect.height;
-    const elementWidth = widthBound
-      ? containerRect.width
-      : Math.round((containerRect.height / height) * width);
-    const elementHeight = widthBound
-      ? Math.round((containerRect.width / width) * height)
-      : containerRect.height;
-    videoStyle.width = elementWidth;
-    videoStyle.height = elementHeight;
-  }
-
   return (
     <div
-      ref={setContainerRef}
       className={`yarl__${CLASS_FLEX_CENTER} yarl__${CLASS_SLIDE_WRAPPER}`}
-      style={{ width: '100%', height: '100%', ...(width ? { maxWidth: `${width}px` } : {}) }}
+      style={{ width: '100%', height: '100%' }}
     >
-      {containerRect && (
-        <EncryptedVideo
-          ref={videoRef}
-          src={slide.src}
-          contentType={slide.contentType}
-          poster={slide.poster}
-          width={width}
-          height={height}
-          autoPlay={autoPlay}
-          controls={controls}
-          controlsList={slide.controlsList ?? video?.controlsList}
-          crossOrigin={crossOrigin === '' || crossOrigin === 'anonymous' || crossOrigin === 'use-credentials'
-            ? crossOrigin
-            : undefined}
-          preload={slide.preload ?? video?.preload}
-          loop={slide.loop ?? video?.loop}
-          muted={slide.muted ?? video?.muted}
-          playsInline={playsInline}
-          disablePictureInPicture={slide.disablePictureInPicture ?? video?.disablePictureInPicture}
-          disableRemotePlayback={slide.disableRemotePlayback ?? video?.disableRemotePlayback}
-          style={videoStyle}
-          onPlay={onPlay}
-          onEnded={onEnded}
-          onError={onError}
-        />
-      )}
+      <EncryptedVideo
+        ref={videoRef}
+        src={slide.src}
+        contentType={slide.contentType}
+        poster={slide.poster}
+        autoPlay={autoPlay}
+        controls={controls}
+        controlsList={slide.controlsList ?? video?.controlsList}
+        crossOrigin={crossOrigin === '' || crossOrigin === 'anonymous' || crossOrigin === 'use-credentials'
+          ? crossOrigin
+          : undefined}
+        preload={slide.preload ?? video?.preload}
+        loop={slide.loop ?? video?.loop}
+        muted={slide.muted ?? video?.muted}
+        playsInline={playsInline}
+        disablePictureInPicture={slide.disablePictureInPicture ?? video?.disablePictureInPicture}
+        disableRemotePlayback={slide.disableRemotePlayback ?? video?.disableRemotePlayback}
+        onPlay={onPlay}
+        onEnded={onEnded}
+        onError={onError}
+      />
     </div>
   );
 };
