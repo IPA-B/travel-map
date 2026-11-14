@@ -9,6 +9,8 @@ import Player from './player';
 import Utils from './common/utils';
 import { SettingsButton } from './settings/components/settings-button';
 
+// Create a SlideEncrypted with encrypted type which contains a common props for encrypted-video and encrypted-image slides (type, src, contentType). This type can be handled by encrypted-image-plugin and by encrypted-video-plugin depending on contentType. If the contentType is provided and it's image than isSlideEncryptedImage returns true if it's video than isSlideEncryptedVideo returns true. In case if it's not provided than you need to load blob 
+// Create powershell script (in the scripts folder) that accepts data.json path (%dataPath argument) with encryption key ($encryptionKey) and generates new data.json with all local files encrypted (from gallery and tracks that starts with "./" or "encrypted:./") in the selected directory (or in encrypted-YYYYMMDD-HHMMSS)
 // TODO create powershell script that accepts data.json with encryption key and generates new data.json with all files encrypted in the selected directory (or in encrypted-YYYYMMDD-HHMMSS)
 // TODO create powershell script that accepts data.json with encryption key and generates new data.json with all files decrypted in the selected directory (or in decrypted-YYYYMMDD-HHMMSS)
 // TODO detect encrypted video/image mime type by file metadata

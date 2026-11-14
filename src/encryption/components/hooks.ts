@@ -2,17 +2,19 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSettings } from '../../settings/components/hooks';
 import Encryption from '..';
 import Utils from '../../common/utils';
+import Mimetics from 'mimetics';
 
 type EncryptedFile = {
     key: string;
-    url?: string | null;
+    src?: string | null;
+    blob?: Blob;
     error?: Error;
 };
 
 export function useEncryptedFile(
     src?: string | null,
     contentType?: string | null,
-): { src: string | null | undefined; error: Error | undefined } {
+): { src: string | null | undefined; blob?: Blob; error: Error | undefined } {
     const [settings] = useSettings();
     const encryptionKey = settings.currentData?.encryptionKey ?? '';
     const fileKey = typeof src === 'string' ? `${src}\0${encryptionKey}\0${contentType ?? ''}` : 'null';
@@ -20,7 +22,7 @@ export function useEncryptedFile(
 
     useEffect(() => {
         if (!Encryption.isEncryptedUri(src)) {
-            setEncryptedFile({ key: fileKey, url: src });
+            setEncryptedFile({ key: fileKey, src });
             return;
         }
 
@@ -39,11 +41,12 @@ export function useEncryptedFile(
 
                 const encryptedData = new Uint8Array(await response.arrayBuffer());
                 const decryptedData = await Encryption.decrypt(encryptedData, encryptionKey);
-                const blob = new Blob([decryptedData], { type: contentType ?? Utils.getContentType(fileUrl) });
+                const contentTypeResolved = contentType ?? Utils.getContentType(fileUrl) ?? Mimetics.parse(decryptedData)?.mime;
+                const blob = new Blob([decryptedData], { type: contentTypeResolved });
 
                 if (active) {
                     objectUrl = URL.createObjectURL(blob);
-                    setEncryptedFile({ key: fileKey, url: objectUrl });
+                    setEncryptedFile({ key: fileKey, src: objectUrl, blob });
                 }
             } catch (cause) {
                 const causeMessage = cause instanceof Error ? cause.message : String(cause);
@@ -65,8 +68,8 @@ export function useEncryptedFile(
 
     const result = useMemo(
         () => encryptedFile?.key === fileKey
-            ? { src: encryptedFile.url, error: encryptedFile.error }
-            : { src: undefined, error: undefined },
+            ? { src: encryptedFile.src, blob: encryptedFile.blob, error: encryptedFile.error }
+            : { src: undefined, blob: undefined, error: undefined },
         [encryptedFile, fileKey]
     );
 

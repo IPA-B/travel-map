@@ -37,7 +37,7 @@ async function decryptTrack(track: Track) {
 
     const decryptedData = await Encryption.decrypt(encryptedData, encryptionKey);
 
-    return new Blob([decryptedData], { type: response.headers.get('content-type') || 'audio/mpeg' });
+    return new Blob([decryptedData]);
 }
 
 function subscribeToPlaybackStateChanged() {
