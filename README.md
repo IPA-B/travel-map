@@ -40,6 +40,19 @@ Example:
 - Sharing your settings with others
 - Localized titles/messages support
 
+## Encrypt local data files
+
+Use `scripts/encrypt-data.ps1` with PowerShell 7.2 or newer. It resolves local `./` file references relative to the input `data.json`, encrypts those files in `gallery` and `tracks` using the configured AES-GCM format, and copies already encrypted `encrypted:./` files unchanged. All hash-named assets are written directly into the output directory without preserving their source folder structure. The copied `data.json` is updated to reference each asset as `encrypted:./<sha256>`, relative to that output file. Without `-OutputDirectory`, output goes to an `__encrypted-yyyyMMdd-HHmmss` folder next to the input file.
+
+The script caches keyed file fingerprints and IVs in `scripts/encrypt-data.json` so the same file and key produce the same encrypted bytes on later runs. The cache contains no file contents, is authenticated, and is not placed in the generated output. It is ignored by Git, but keep it private and do not delete or edit it while continuing to encrypt with the same key; a modified cache is rejected. Run only one instance at a time with the same cache. Reusing an IV is limited to content with the same keyed SHA-256 fingerprint, and intentionally reveals when file contents match. This is a deliberate deterministic-reuse tradeoff; do not reuse the IV for different content. Use `-CachePath` to select a different private cache location; a cache is bound to the encryption key.
+
+```powershell
+$encryptionKey = Read-Host -Prompt 'Encryption key' -AsSecureString
+.\scripts\encrypt-data.ps1 -DataPath .\data\data.json -EncryptionKey $encryptionKey
+```
+
+To choose an output folder, pass `-OutputDirectory .\encrypted-data`. To choose a cache location, pass `-CachePath C:\private\encrypt-data.json`. Keep the encryption key and cache safe; the key is required to view encrypted media, and the cache is required to reproduce the same encrypted files later.
+
 ## Spotify
 
 If you plan to use Spotify playback, create your own Spotify app in the Spotify Developer Dashboard and replace the client ID in the Spotify module with your app's client ID.
