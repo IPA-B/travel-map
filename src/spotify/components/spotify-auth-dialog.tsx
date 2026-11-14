@@ -3,13 +3,23 @@ import './spotify-auth-dialog.css';
 import Translations from '../../translations';
 import { Dialog } from '../../common/dialog';
 import Spotify from '..';
-import { FC, useCallback, useEffect, useEffectEvent, useRef } from 'react';
+import { FC, useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import SpotifyIcons from './spotify-icons';
 import { Button } from '../../common/button';
 import SpotifyAuthStorage from '../spotify-auth-storage';
+import { TravelData } from '../../travel-data';
 
-export const SpotifyAuthDialog: FC = () => {
+export type SpotifyAuthDialogProps = {
+	travelData: TravelData | null | undefined;
+};
+
+export const SpotifyAuthDialog: FC<SpotifyAuthDialogProps> = ({ travelData }) => {
 	const dialogRef = useRef<HTMLDialogElement>(null);
+	const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+	const hasSpotifyTracks = useMemo(
+		() => travelData?.places.some(p => p.tracks.some(Spotify.isSpotifyTrackUri)) ?? false, 
+		[travelData?.places]
+	);
 
 	const showDialog = useEffectEvent((checkShownAt: boolean) => {
 		if (checkShownAt) {
@@ -24,8 +34,14 @@ export const SpotifyAuthDialog: FC = () => {
 	});
 
 	useEffect(() => {
-		Spotify.init().then(r => !r.isAuthorized && showDialog(true));
+		Spotify.init().then(r => setIsAuthorized(r.isAuthorized));
 	}, []);
+
+	useEffect(() => {
+		if (isAuthorized === false && hasSpotifyTracks === true) {
+			showDialog(true);
+		}
+	}, [isAuthorized, hasSpotifyTracks]);
 
 	const onAuthorizeClick = useCallback(() => {
 		Spotify.authorize();

@@ -4,6 +4,8 @@ export type SpotifyInitResult = {
   isAuthorized: boolean;
 }
 
+export type SpotifyTrackUri = `spotify:track:${string}`;
+
 let player: SpotifySdk.Player | null = null;
 let deviceId: string | null = null;
 
@@ -202,6 +204,10 @@ function isAuthorized(): Promise<boolean> {
   })().finally(() => { isAuthorizedPromise = null; });
 }
 
+function isSpotifyTrackUri(value: unknown): value is SpotifyTrackUri {
+  return typeof value === 'string' && value.startsWith('spotify:track:');
+}
+
 async function init() {
   const isAuthorized = await SpotifyAuth.init();
 
@@ -214,6 +220,7 @@ async function init() {
 
 const Spotify = {
   init,
+  isSpotifyTrackUri,
   isAuthorized,
   authorize: SpotifyAuth.authorize,
   logout: SpotifyAuth.logout,

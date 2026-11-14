@@ -9,6 +9,9 @@ import Player from './player';
 import Utils from './common/utils';
 import { SettingsButton } from './settings/components/settings-button';
 
+// TODO create powershell script that accepts data.json with encryption key and generates new data.json with all files encrypted in the selected directory (or in encrypted-YYYYMMDD-HHMMSS)
+// TODO create powershell script that accepts data.json with encryption key and generates new data.json with all files decrypted in the selected directory (or in decrypted-YYYYMMDD-HHMMSS)
+// TODO detect encrypted video/image mime type by file metadata
 // TODO BUG cannot open popup after closing it with clicking to marker
 // TODO TravelMap refactor (create LeafletMap react component with LeafletMarker component). Remove L.Map dependency from TravelMap
 // TODO add playback logo, colors and service link to track to player as it may be required by some services (e.g. spotify)
@@ -51,7 +54,7 @@ const App: FC = () => {
       <SettingsButton />
       <ShareButton />
       <PlayerWidget />
-      <SpotifyAuthDialog />
+      <SpotifyAuthDialog travelData={data} />
       <WelcomeDialog welcomeData={data?.welcome} />
     </div>
   );

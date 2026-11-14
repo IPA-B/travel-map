@@ -63,11 +63,7 @@ function getState(): PlaybackState {
 }
 
 async function canPlay(track: Track) {
-    if (typeof track !== 'string') {
-        return false;
-    }
-
-    if (!track.startsWith('spotify:track:')) {
+    if (!Spotify.isSpotifyTrackUri(track)) {
         return false;
     }
 
