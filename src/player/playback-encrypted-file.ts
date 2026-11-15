@@ -22,22 +22,12 @@ async function decryptTrack(track: Track) {
         throw new Error(`Unexpected track type: ${typeof track}`);
     }
 
-    if (!Encryption.isEncryptedUri(track)) {
-        throw new Error(`Track must be an encrypted URI: ${track}`);
-    }
-
-    const response = await fetch(Encryption.decryptUri(track));
-    if (!response.ok) {
-        throw new Error(`Failed to fetch encrypted file. Status: ${response.status}`);
-    }
-
-    const encryptedData = new Uint8Array(await response.arrayBuffer());
     const settings = SettingsStorage.getSettings();
     const encryptionKey = settings.currentData?.encryptionKey ?? '';
 
-    const decryptedData = await Encryption.decrypt(encryptedData, encryptionKey);
+    const blob = await Encryption.loadEncryptedFile(track, encryptionKey);
 
-    return new Blob([decryptedData]);
+    return blob;
 }
 
 function subscribeToPlaybackStateChanged() {
