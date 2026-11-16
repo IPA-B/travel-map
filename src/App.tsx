@@ -9,7 +9,6 @@ import Player from './player';
 import Utils from './common/utils';
 import { SettingsButton } from './settings/components/settings-button';
 
-// TODO TravelMap refactor (create LeafletMap react component with LeafletMarker component). Remove L.Map dependency from TravelMap
 // TODO add playback logo, colors and service link to track to player as it may be required by some services (e.g. spotify)
 // TODO add more playbacks (apple music, youtube music etc)
 // TODO add alternative track source support (e.g. if no spotify available) (example { tracks: [['spotify:track:....', 'https://.....'], '', ['', '', ''], ....] })

@@ -1,14 +1,13 @@
 import './marker.css';
 
-import { FC, useCallback, useEffect, useEffectEvent, useMemo, useState } from "react";
-import { useSettingsCurrentPlaceId } from "../settings/components/hooks";
-import { TravelPlace } from "../travel-data";
-import { TravelPopup } from "./popup";
-import { createPortal } from "react-dom";
-import L from "leaflet";
+import L from 'leaflet';
+import { FC, useCallback, useEffect, useEffectEvent, useMemo, useState } from 'react';
+import { useSettingsCurrentPlaceId } from '../settings/components/hooks';
+import { TravelPlace } from '../travel-data';
+import { TravelPopup } from './popup';
+import { LeafletMarker, LeafletPopup } from './leaflet';
 
 export type TravelMapMarkerProps = {
-  map: L.Map | null,
   latitude: number | null,
   longitude: number | null,
   places: TravelPlace[],
@@ -16,7 +15,6 @@ export type TravelMapMarkerProps = {
 }
 
 export const TravelMapMarker: FC<TravelMapMarkerProps> = ({ 
-  map, 
   latitude: markerLat, 
   longitude: markerLng, 
   places: placesFromProps, 
@@ -25,13 +23,10 @@ export const TravelMapMarker: FC<TravelMapMarkerProps> = ({
   const [settingsCurrentPlaceId, setSettingsCurrentPlaceId] = useSettingsCurrentPlaceId();
 
   const [currentPlace, setCurrentPlace] = useState<TravelPlace | null>(null);
-  const [marker, setMarker] = useState<L.Marker | null>(null);
-  const [popup, setPopup] = useState<L.Popup | null>(null);
 
-  const places = useMemo(() => placesFromProps.sort((p1, p2) => p1.date.getTime() - p2.date.getTime()), [placesFromProps]);
+  const places = useMemo(() => [...placesFromProps].sort((p1, p2) => p1.date.getTime() - p2.date.getTime()), [placesFromProps]);
 
   const isPopupOpened = useMemo<boolean>(() => places.some(p => p.id === settingsCurrentPlaceId), [places, settingsCurrentPlaceId]);
-  const popupContentElement = useMemo<HTMLDivElement>(() => document.createElement('div'), []);
 
   const onMarkerClick = useEffectEvent(() => {
       if (!currentPlace) return;
@@ -43,54 +38,13 @@ export const TravelMapMarker: FC<TravelMapMarkerProps> = ({
       }
   });
 
-  const onPopupOpen = useEffectEvent(() => {
+  const onPopupOpen = useCallback(() => {
     setSettingsCurrentPlaceId(settingsCurrentPlaceId => currentPlace ? currentPlace.id : settingsCurrentPlaceId);
-  });
+  }, [currentPlace, setSettingsCurrentPlaceId]);
 
-  const onPopupClose = useEffectEvent(() => {
+  const onPopupClose = useCallback(() => {
     setSettingsCurrentPlaceId(settingsCurrentPlaceId => settingsCurrentPlaceId === currentPlace?.id ? null : settingsCurrentPlaceId);
-  });
-
-  useEffect(() => {
-    if (typeof map !== 'object' || map === null) return;
-    if (typeof markerLat !== 'number' || typeof markerLng !== 'number') return;
-
-    const marker = L.marker([markerLat, markerLng], {
-      icon: L.divIcon({
-        html: '<span class="marker-dot"></span>',
-        className: 'travel-marker',
-        iconSize: [24, 24],
-        iconAnchor: [12, 24],
-      }),
-    }).on('click', onMarkerClick)
-      .addTo(map);
-    
-    setMarker(marker);
-
-    const popup = L.popup({
-      className: 'travel-popup',
-      minWidth: 250,
-      maxWidth: 600,
-      closeButton: false,
-      offset: [0, -12],
-    }).setLatLng(marker.getLatLng())
-      .setContent(popupContentElement)
-      .on('add', onPopupOpen)
-      .on('remove', onPopupClose);
-
-    setPopup(popup);
-
-    return () => {
-      marker.off('click', onMarkerClick);
-      marker.removeFrom(map);
-      setMarker(null);
-
-      popup.off('add', onPopupOpen)
-      popup.off('remove', onPopupClose);
-      map.closePopup(popup);
-      setPopup(null);
-    };
-  }, [map, markerLat, markerLng]);
+  }, [currentPlace, setSettingsCurrentPlaceId]);
 
   useEffect(() => {
     const settingsCurrentPlace = places.find(p => p.id === settingsCurrentPlaceId);
@@ -111,36 +65,58 @@ export const TravelMapMarker: FC<TravelMapMarkerProps> = ({
   }, [places, settingsCurrentPlaceId]);
 
   useEffect(() => {
-    if (typeof map !== 'object' || map === null) return;
-    if (typeof popup !== 'object' || popup === null) return;
-
-    if (isPopupOpened) {
-      map.openPopup(popup);
-    } else {
-      map.closePopup(popup);
-    }
-  }, [map, popup, isPopupOpened]);
-
-  useEffect(() => {
     if (!isPopupOpened) return;
 
     setSettingsCurrentPlaceId(settingsCurrentPlaceId => currentPlace ? currentPlace.id : settingsCurrentPlaceId);
   }, [currentPlace]);
 
-  const onCurrentPlaceChanged = useCallback((currentPlace: TravelPlace) => {
-    setCurrentPlace(currentPlace);
+  const onCurrentPlaceChanged = useCallback((place: TravelPlace) => {
+    setCurrentPlace(place);
   }, []);
 
   useEffect(() => {
     onCurrentPlaceChangedFromProps?.(currentPlace);
   }, [currentPlace, onCurrentPlaceChangedFromProps]);
 
-  return createPortal(
-    <TravelPopup
-      places={places}
-      currentPlace={currentPlace}
-      onCurrentPlaceChanged={onCurrentPlaceChanged}
-    />,
-    popupContentElement
+  const markerOptions = useMemo<L.MarkerOptions>(() => ({
+    icon: L.divIcon({
+      html: '<span class="marker-dot"></span>',
+      className: 'travel-marker',
+      iconSize: [24, 24],
+      iconAnchor: [12, 24],
+    }),
+  }), []);
+
+  const popupOptions = useMemo<L.PopupOptions>(() => ({
+    className: 'travel-popup',
+    minWidth: 250,
+    maxWidth: 600,
+    closeButton: false,
+    offset: [0, -12],
+  }), []);
+
+  if (typeof markerLat !== 'number' || typeof markerLng !== 'number') {
+    return null;
+  }
+
+  return (
+    <LeafletMarker
+      position={[markerLat, markerLng]}
+      options={markerOptions}
+      onClick={onMarkerClick}
+    >
+      <LeafletPopup
+        isOpen={isPopupOpened}
+        options={popupOptions}
+        onOpen={onPopupOpen}
+        onClose={onPopupClose}
+      >
+        <TravelPopup
+          places={places}
+          currentPlace={currentPlace}
+          onCurrentPlaceChanged={onCurrentPlaceChanged}
+        />
+      </LeafletPopup>
+    </LeafletMarker>
   );
 }

@@ -73,7 +73,7 @@ export const TravelPopup: FC<TravelPopupProps> = ({ places, currentPlace, onCurr
       return;
     }
 
-    const sortedPlaces = places.sort((p1, p2) => p1.date.getTime() - p2.date.getTime());
+    const sortedPlaces = [...places].sort((p1, p2) => p1.date.getTime() - p2.date.getTime());
     const currentPlaceIndex = sortedPlaces.findIndex(p => p === currentPlace);
     const nextPlaceIndex = (currentPlaceIndex + 1) % places.length;
     const nextPlace = sortedPlaces[nextPlaceIndex];

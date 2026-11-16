@@ -1,48 +1,21 @@
 import './index.css';
-import 'leaflet/dist/leaflet.css';
 
 import L from 'leaflet';
-import { FC, useState, useEffect, useRef, Ref, RefCallback, useEffectEvent, useMemo, Fragment, useCallback } from 'react';
+import { FC, useState, useEffect, useRef, Ref, useEffectEvent, useMemo, Fragment, useCallback } from 'react';
 import { TravelData, TravelPlace } from '../travel-data';
 import Utils from '../common/utils';
 import Player from '../player';
 import { useSettingsCurrentPlaceId } from '../settings/components/hooks';
 import { TravelMapMarker } from './marker';
-import { useMergedRef, useRefModifier } from '../common/utils/components/hooks';
+import { useMergedRef } from '../common/utils/components/hooks';
+import { LeafletMap } from './leaflet';
+
+export { LeafletMap, LeafletMarker, LeafletPopup } from './leaflet';
 
 export type TravelMapProps = {
   mapRef?: Ref<L.Map>;
   travelData?: TravelData | null;
 };
-
-const TravelMapBase: FC<TravelMapProps> = ({ mapRef }) => {
-  const mapElementRef = useRef<HTMLDivElement>(null);
-  const [setMapRef, cleanupMapRef] = useRefModifier(mapRef);
-
-  useEffect(() => {
-    if (!mapElementRef.current) {
-      return;
-    }
-
-    const map = L.map(mapElementRef.current, {
-      zoomControl: false,
-      worldCopyJump: true,
-    }).setView([20, 0], 2);
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    }).addTo(map);
-
-    setMapRef(map);
-
-    return () => {
-      cleanupMapRef();
-      map.remove();
-    };
-  }, []);
-
-  return (<div ref={mapElementRef} id="map" aria-label="Travel map" />);
-}
 
 const getStringHash = (value: string) => {
   let hash = 0;
@@ -430,17 +403,17 @@ const TravelMapWithMarkers: FC<TravelMapProps> = (props) => {
   );
 
   return (
-    <>
-      <TravelMapBase
-        {...props}
-        mapRef={mapRef}
-      />
-
+    <LeafletMap 
+      mapRef={mapRef}
+      options={{ 
+        zoomControl: false, 
+        worldCopyJump: true,
+      }}
+    >
       <Fragment key={placesHash}>
         {markerPlaces.map((places, index) => (
           <TravelMapMarker
             key={places.reduce((r, p) => r ^ getStringHash(p.id), places.length)}
-            map={map}
             latitude={markerPositions[index][0]}
             longitude={markerPositions[index][1]}
             places={places}
@@ -448,7 +421,7 @@ const TravelMapWithMarkers: FC<TravelMapProps> = (props) => {
           />
         ))}
       </Fragment>
-    </>
+    </LeafletMap>
   );
 };
 
