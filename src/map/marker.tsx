@@ -36,7 +36,11 @@ export const TravelMapMarker: FC<TravelMapMarkerProps> = ({
   const onMarkerClick = useEffectEvent(() => {
       if (!currentPlace) return;
       
-      setSettingsCurrentPlaceId(currentPlace.id);
+      if (typeof settingsCurrentPlaceId !== 'string') {
+        setSettingsCurrentPlaceId(currentPlace.id);
+      } else {
+        setSettingsCurrentPlaceId(null);
+      }
   });
 
   const onPopupOpen = useEffectEvent(() => {
